@@ -1,0 +1,41 @@
+<?xml version="1.0"?>
+
+<project name="Unreal Cooja" default="compile" basedir=".">
+  <property name="src" location="java"/>
+  <property name="build" location="build"/>
+
+  <property name="cooja" location="../.."/>
+  <property name="cooja_jar" value="${cooja}/dist/cooja.jar"/>
+  <property name="mspsim_jar" value="${cooja}/apps/mspsim/lib/mspsim.jar"/>
+  <property name="cooja_mspsim_jar" value="${cooja}/apps/mspsim/lib/cooja_mspsim.jar"/>
+
+  <target name="init">
+    <tstamp/>
+  </target>
+
+  <target name="clean" depends="init">
+    <delete dir="build"/>
+  </target>
+
+  <target name="compile" depends="init">
+    <mkdir dir="${build}"/>
+    <javac srcdir="${src}" destdir="${build}" debug="on"
+           includeantruntime="false">
+      <classpath>
+        <pathelement location="${cooja_jar}"/>
+        <pathelement location="${mspsim_jar}"/>
+        <pathelement location="${cooja_mspsim_jar}"/>
+      </classpath>
+    </javac>
+  </target>
+
+  <target name="jar" depends="clean, init, compile">
+    <mkdir dir="lib"/>
+    <jar destfile="lib/unrealcooja.jar" basedir="build">
+      <manifest>
+        <attribute name="Class-Path" value="."/>
+      </manifest>
+    </jar>
+  </target>
+
+</project>

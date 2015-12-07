@@ -34,7 +34,7 @@ public class LEDEventObserver extends InterfaceEventObserver {
         try {
             DatagramSocket clientSocket = new DatagramSocket();
             InetAddress IPAddress = InetAddress.getByName("localhost");
-            status[0] = (byte) mote.getID();
+            status[0] = (byte) (mote.getID() - 1);
             DatagramPacket sendPacket = new DatagramPacket(status, status.length, IPAddress, 5000);
             clientSocket.send(sendPacket);
         } catch (Exception e) {

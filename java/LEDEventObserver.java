@@ -17,25 +17,33 @@ public class LEDEventObserver extends InterfaceEventObserver {
     private boolean red;
     private boolean yellow;
     private boolean green;
+    DatagramSocket clientSocket;
+    InetAddress ipAddress;
+    DatagramPacket sendPacket;
+    byte[] status;
 
     public LEDEventObserver(MoteObserver parent, Mote mote,
                             Observable interfaceToObserve) {
         super(parent, mote, interfaceToObserve);
         this.leds = (LED) interfaceToObserve;
         logger.info("Created LED observer");
+        try {
+            clientSocket = new DatagramSocket();
+            ipAddress = InetAddress.getByName("localhost");
+        } catch (Exception e) {
+            logger.error(e.getMessage());
+        }
     }
 
     @Override
     public void update(Observable observable, Object o) {
-        byte[] status = new byte[4];
+        status = new byte[4];
         status[1] = (byte) (leds.isRedOn()? 1: 0);
         status[2] = (byte) (leds.isGreenOn()? 1: 0);
         status[3] = (byte) (leds.isYellowOn()? 1: 0);
         try {
-            DatagramSocket clientSocket = new DatagramSocket();
-            InetAddress IPAddress = InetAddress.getByName("localhost");
             status[0] = (byte) (mote.getID() - 1);
-            DatagramPacket sendPacket = new DatagramPacket(status, status.length, IPAddress, 5000);
+            sendPacket= new DatagramPacket(status, status.length, ipAddress, 5000);
             clientSocket.send(sendPacket);
         } catch (Exception e) {
             logger.info(e.getMessage());

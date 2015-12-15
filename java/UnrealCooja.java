@@ -4,21 +4,27 @@ import java.awt.event.ActionListener;
 
 import javax.swing.JButton;
 
+import java.io.DataInputStream;
+import java.io.IOException;
+import java.net.DatagramPacket;
+import java.net.DatagramSocket;
+import java.net.InetSocketAddress;
+import java.net.SocketAddress;
 import java.util.ArrayList;
 
 import org.apache.log4j.Logger;
-
+import org.contikios.cooja.mspmote.MspMote;
 import org.contikios.cooja.ClassDescription;
-import org.contikios.cooja.Cooja;
-import se.sics.mspsim.core.MSP430;
-import org.contikios.cooja.Mote;
 import org.contikios.cooja.PluginType;
+import org.contikios.cooja.Cooja;
+import org.contikios.cooja.Mote;
+import org.contikios.cooja.interfaces.Radio;
 import org.contikios.cooja.RadioConnection;
 import org.contikios.cooja.RadioMedium;
 import org.contikios.cooja.SimEventCentral.MoteCountListener;
 import org.contikios.cooja.Simulation;
 import org.contikios.cooja.VisPlugin;
-import org.contikios.cooja.interfaces.Radio;
+import se.sics.mspsim.core.MSP430;
 
 /**
  * 
@@ -39,7 +45,9 @@ import org.contikios.cooja.interfaces.Radio;
 public class UnrealCooja extends VisPlugin implements CoojaEventObserver{
   private static final long serialVersionUID = 4368807123350830772L;
   private static Logger logger = Logger.getLogger(UnrealCooja.class);
-
+  private final Thread udpHandler;
+  private DatagramSocket udpSocket;
+  private int PORT = 5011;
   private Simulation sim;
   private RadioMedium radioMedium;
   private RadioMediumEventObserver networkObserver;
@@ -75,6 +83,17 @@ public class UnrealCooja extends VisPlugin implements CoojaEventObserver{
     this.getContentPane().add(BorderLayout.NORTH, button);
     setSize(300,100);
     insertBuffer = new ArrayList<String>();
+    try {
+      udpSocket = new DatagramSocket(null);
+      //udpSocket.setReuseAddress(true);
+      udpSocket.bind(new InetSocketAddress(PORT));
+      logger.info("Listening on port " + PORT);
+    } catch (IOException e){
+      logger.info("Couldn't open socket on port " + PORT);
+      logger.error(e.getMessage());
+    }
+    udpHandler = new Thread(new IncomingDataHandler());
+    udpHandler.start();
   }
 
   public void initObservers() {
@@ -121,6 +140,13 @@ public class UnrealCooja extends VisPlugin implements CoojaEventObserver{
     for(MoteObserver mote : moteObservers) {
       mote.deleteAllObservers();
     }
+    udpHandler.interrupt();
+    try {
+      udpHandler.join();
+    } catch (InterruptedException e) {
+      logger.info("Interrupted whilst waiting for udpHandler");
+      logger.error(e.getMessage());
+    }
     logger.info("UnrealCooja cleaned up");
   }
 
@@ -165,6 +191,33 @@ public class UnrealCooja extends VisPlugin implements CoojaEventObserver{
 //    }
     connections++;
   }
+
+
+  /* Forward data: Unreal Engine Mote -> Cooja mote */
+  private class IncomingDataHandler implements Runnable {
+    @Override
+    public void run() {
+      final byte[] data = new byte[128];
+      DatagramPacket pkt = new DatagramPacket(data, 128);
+      while (!Thread.currentThread().isInterrupted()) {
+        try {
+          udpSocket.receive(pkt);
+        } catch (IOException ex) {
+          logger.error(ex);
+        }
+
+        sim.invokeSimulationThread(new Runnable() {
+          @Override
+          public void run() {
+            sim.getMotes()[data[0]].getInterfaces().getButton().clickButton();
+            logger.info("Got a button click for " + data[0]);
+          }
+        });
+      }
+      udpSocket.close();
+    }
+  }
+
 
 }
 /* transmissions (id integer, startT integer, endT integer, src integer, rxd integer, crxd integer, pktSize integer)

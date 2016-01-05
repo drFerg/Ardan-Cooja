@@ -1,5 +1,4 @@
 import org.apache.log4j.Logger;
-import org.jdom.Element;
 
 import org.contikios.cooja.ClassDescription;
 

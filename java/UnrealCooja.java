@@ -24,6 +24,8 @@ import org.contikios.cooja.RadioMedium;
 import org.contikios.cooja.SimEventCentral.MoteCountListener;
 import org.contikios.cooja.Simulation;
 import org.contikios.cooja.VisPlugin;
+import org.contikios.cooja.mspmote.SkyMote;
+import org.contikios.cooja.mspmote.interfaces.SkyTemperature;
 import se.sics.mspsim.core.MSP430;
 
 /**
@@ -40,7 +42,7 @@ import se.sics.mspsim.core.MSP430;
  * Pipes interface events (radio, CPU) from motes in Cooja into HWDB for analysis using automata.
  * 
  */
-@ClassDescription("Cooja HWDB") /* Description shown in menu */
+@ClassDescription("Unreal Cooja") /* Description shown in menu */
 @PluginType(PluginType.SIM_PLUGIN)
 public class UnrealCooja extends VisPlugin implements CoojaEventObserver{
   private static final long serialVersionUID = 4368807123350830772L;
@@ -205,7 +207,7 @@ public class UnrealCooja extends VisPlugin implements CoojaEventObserver{
         } catch (IOException ex) {
           logger.error(ex);
         }
-
+        //((SkyMote)sim.getMotes()[data[0]]).getCPU().getIOUnit("ADC12");
         sim.invokeSimulationThread(new Runnable() {
           @Override
           public void run() {

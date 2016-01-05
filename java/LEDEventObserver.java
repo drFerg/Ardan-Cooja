@@ -37,12 +37,12 @@ public class LEDEventObserver extends InterfaceEventObserver {
 
     @Override
     public void update(Observable observable, Object o) {
-        status = new byte[4];
-        status[1] = (byte) (leds.isRedOn()? 1: 0);
-        status[2] = (byte) (leds.isGreenOn()? 1: 0);
-        status[3] = (byte) (leds.isYellowOn()? 1: 0);
+        status = new byte[5];
+        status[2] = (byte) (leds.isRedOn()? 1: 0);
+        status[3] = (byte) (leds.isGreenOn()? 1: 0);
+        status[4] = (byte) (leds.isYellowOn()? 1: 0);
         try {
-            status[0] = (byte) (mote.getID() - 1);
+            status[1] = (byte) (mote.getID() - 1);
             sendPacket= new DatagramPacket(status, status.length, ipAddress, 5000);
             clientSocket.send(sendPacket);
         } catch (Exception e) {

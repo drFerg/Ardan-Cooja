@@ -34,9 +34,8 @@ public class RadioMediumEventObserver implements Observer {
 			clientSocket = new DatagramSocket();
 			ipAddress = InetAddress.getByName("localhost");
 		} catch (Exception e) {
-			logger.error(e.getMessage());
+			logger.error("RMEO>> " + e.getMessage());
 		}
-		data[0] = NETWORK_PKT;
 		this.network.addRadioTransmissionObserver(this);
 			logger.info("Created radio medium observer");
 	}
@@ -45,8 +44,11 @@ public class RadioMediumEventObserver implements Observer {
 	public void update(Observable obs, Object obj) {
 //		parent.radioMediumEventHandler(network.getLastConnection());
 		RadioConnection conn = network.getLastConnection();
+		if (conn == null) return;
 		Radio[] dests = conn.getDestinations();
+		if (dests.length == 0) return;
 		data = new byte[3 + dests.length];
+		data[0] = NETWORK_PKT;
 		data[1] = (byte) (conn.getSource().getMote().getID() - 1);
 		data[2] = (byte) dests.length;
 		for (int i = 0; i < dests.length; i++) {

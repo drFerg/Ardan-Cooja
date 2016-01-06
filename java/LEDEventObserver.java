@@ -31,7 +31,7 @@ public class LEDEventObserver extends InterfaceEventObserver {
             clientSocket = new DatagramSocket();
             ipAddress = InetAddress.getByName("localhost");
         } catch (Exception e) {
-            logger.error(e.getMessage());
+            logger.error("LEDEO>> " + e.getMessage());
         }
         status = new byte[5];
         status[0] = (byte) 0;

@@ -102,7 +102,7 @@ public class UnrealCooja extends VisPlugin implements CoojaEventObserver{
     /* Check for class loaders, if not the same class casting won't work, reload to fix */
     if ((sim.getMotes()[0].getClass().getClassLoader() != this.getClass().getClassLoader()) &&
         (sim.getMotes()[0].getClass().getClassLoader() != gui.getClass().getClassLoader())) {
-          logger.info("Different class loaders");
+          logger.info("Different class loaders - Reload to fix");
           return;
     }
     initialised = true;

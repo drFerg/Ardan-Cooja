@@ -29,18 +29,18 @@ import org.contikios.cooja.mspmote.interfaces.SkyTemperature;
 import se.sics.mspsim.core.MSP430;
 
 /**
- * 
+ *
  * This project must be loaded in COOJA before the plugin can be used:
  * Menu>Settings>Manage project directories>Browse>..>OK
- * 
+ *
  * @author Fergus Leahy
  */
 
-/* 
+/*
  * Cooja HWDB plugin
- * 
+ *
  * Pipes interface events (radio, CPU) from motes in Cooja into HWDB for analysis using automata.
- * 
+ *
  */
 @ClassDescription("Unreal Cooja") /* Description shown in menu */
 @PluginType(PluginType.SIM_PLUGIN)
@@ -66,7 +66,7 @@ public class UnrealCooja extends VisPlugin implements CoojaEventObserver{
   private boolean mesh = true;
   /**
    * @param simulation Simulation object
-   * @param gui GUI object 
+   * @param gui GUI object
    */
   public UnrealCooja(Simulation simulation, Cooja gui) {
     super("Unreal Cooja", gui, false);
@@ -74,7 +74,7 @@ public class UnrealCooja extends VisPlugin implements CoojaEventObserver{
     radioMedium = sim.getRadioMedium();
     this.gui = gui;
 
-    
+
     /* Initialise Observers button */
     JButton button = new JButton("Observe");
     button.addActionListener(new ActionListener() {
@@ -127,7 +127,7 @@ public class UnrealCooja extends VisPlugin implements CoojaEventObserver{
     });
   }
 
-  /* Adds a new mote to the observed set of motes 
+  /* Adds a new mote to the observed set of motes
    * Needed for use in listener, to access /this/ context */
   public void addMote(Mote mote){
     moteObservers.add(new MoteObserver(this, mote));
@@ -138,7 +138,7 @@ public class UnrealCooja extends VisPlugin implements CoojaEventObserver{
     logger.info("Tidying up UnrealCooja listeners/observers");
     if (!initialised) return;
     networkObserver.deleteObserver();
-    sim.getEventCentral().removeMoteCountListener(moteCountListener); 
+    sim.getEventCentral().removeMoteCountListener(moteCountListener);
     for(MoteObserver mote : moteObservers) {
       mote.deleteAllObservers();
     }
@@ -208,13 +208,28 @@ public class UnrealCooja extends VisPlugin implements CoojaEventObserver{
           logger.error(ex);
         }
         //((SkyMote)sim.getMotes()[data[0]]).getCPU().getIOUnit("ADC12");
-        sim.invokeSimulationThread(new Runnable() {
-          @Override
-          public void run() {
-            sim.getMotes()[data[0]].getInterfaces().getButton().clickButton();
-            logger.info("Got a button click for " + data[0]);
+        Runnable toRun;
+        switch (data[0]) {
+          case (0): {
+            toRun = new Runnable() {
+              @Override
+              public void run() {
+                sim.getMotes()[data[0]].getInterfaces().getButton().clickButton();
+                logger.info("Got a button click for " + data[0]);
+              }
+            };
           }
-        });
+          case (1): {
+            toRun = new Runnable() {
+              @Override
+              public void run() {
+                /* Get coordinates from packet (Protobuf?)
+                sim.getMotes()[data[0]].getInterfaces().getPosition().setCoordinates()
+                */
+              }
+            };
+          }
+        sim.invokeSimulationThread(toRun);
       }
       udpSocket.close();
     }

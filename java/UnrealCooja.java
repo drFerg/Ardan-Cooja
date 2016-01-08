@@ -10,8 +10,11 @@ import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
 
+import UnrealCoojaMsg.Message;
+import UnrealCoojaMsg.MsgType;
 import org.apache.log4j.Logger;
 import org.contikios.cooja.mspmote.MspMote;
 import org.contikios.cooja.ClassDescription;
@@ -199,37 +202,48 @@ public class UnrealCooja extends VisPlugin implements CoojaEventObserver{
   private class IncomingDataHandler implements Runnable {
     @Override
     public void run() {
-      final byte[] data = new byte[128];
-      DatagramPacket pkt = new DatagramPacket(data, 128);
+      final byte[] data = new byte[200];
+      DatagramPacket pkt = new DatagramPacket(data, 200);
       while (!Thread.currentThread().isInterrupted()) {
         try {
           udpSocket.receive(pkt);
+          logger.info("Got pkt " + pkt.getLength());
         } catch (IOException ex) {
           logger.error(ex);
         }
         //((SkyMote)sim.getMotes()[data[0]]).getCPU().getIOUnit("ADC12");
-        Runnable toRun;
-        switch (data[0]) {
-          case (0): {
+        ByteBuffer bb = ByteBuffer.wrap(data);
+        final Message msg = Message.getRootAsMessage(bb);
+
+        Runnable toRun = null;
+        switch (msg.type()) {
+          case (MsgType.PIR): {
             toRun = new Runnable() {
               @Override
               public void run() {
-                sim.getMotes()[data[0]].getInterfaces().getButton().clickButton();
-                logger.info("Got a button click for " + data[0]);
+                logger.info("Got a button click for " + msg.id());
+                sim.getMotes()[msg.id()].getInterfaces().getButton().clickButton();
               }
             };
           }
-          case (1): {
+          case (MsgType.LOCATION): {
             toRun = new Runnable() {
               @Override
               public void run() {
+                logger.info("Got a location update for " + msg.id());
+                logger.info(sim.getMotes().length);
+                sim.getMotes()[msg.id()].getInterfaces().getPosition().setCoordinates(
+                        msg.location().x(),
+                        msg.location().y(),
+                        msg.location().z());
                 /* Get coordinates from packet (Protobuf?)
                 sim.getMotes()[data[0]].getInterfaces().getPosition().setCoordinates()
                 */
               }
             };
           }
-        sim.invokeSimulationThread(toRun);
+        }
+        if (toRun != null) sim.invokeSimulationThread(toRun);
       }
       udpSocket.close();
     }

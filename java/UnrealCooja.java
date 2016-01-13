@@ -202,9 +202,10 @@ public class UnrealCooja extends VisPlugin implements CoojaEventObserver{
   private class IncomingDataHandler implements Runnable {
     @Override
     public void run() {
-      final byte[] data = new byte[200];
-      DatagramPacket pkt = new DatagramPacket(data, 200);
+
       while (!Thread.currentThread().isInterrupted()) {
+        final byte[] data = new byte[200];
+        DatagramPacket pkt = new DatagramPacket(data, 200);
         try {
           udpSocket.receive(pkt);
           logger.info("Got pkt " + pkt.getLength());
@@ -225,22 +226,29 @@ public class UnrealCooja extends VisPlugin implements CoojaEventObserver{
                 sim.getMotes()[msg.id()].getInterfaces().getButton().clickButton();
               }
             };
+            break;
           }
           case (MsgType.LOCATION): {
             toRun = new Runnable() {
               @Override
               public void run() {
                 logger.info("Got a location update for " + msg.id());
+                logger.info("X: " + msg.location().x() + " Y: " + msg.location().y() +
+                        " Z: " + msg.location().z());
                 logger.info(sim.getMotes().length);
                 sim.getMotes()[msg.id()].getInterfaces().getPosition().setCoordinates(
-                        msg.location().x(),
-                        msg.location().y(),
-                        msg.location().z());
+                        msg.location().x()/100,
+                        msg.location().y()/100,
+                        msg.location().z()/100);
                 /* Get coordinates from packet (Protobuf?)
                 sim.getMotes()[data[0]].getInterfaces().getPosition().setCoordinates()
                 */
               }
             };
+            break;
+          }
+          default: {
+            logger.info("Not recognised");
           }
         }
         if (toRun != null) sim.invokeSimulationThread(toRun);

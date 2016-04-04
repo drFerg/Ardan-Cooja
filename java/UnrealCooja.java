@@ -13,6 +13,7 @@ import java.net.SocketAddress;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 
+import com.google.flatbuffers.*;
 import UnrealCoojaMsg.Message;
 import UnrealCoojaMsg.MsgType;
 import org.apache.log4j.Logger;
@@ -40,7 +41,7 @@ import se.sics.mspsim.core.MSP430;
  */
 
 /*
- * Cooja HWDB plugin
+ * Cooja Unreal plugin
  *
  * Pipes interface events (radio, CPU) from motes in Cooja into HWDB for analysis using automata.
  *
@@ -90,14 +91,13 @@ public class UnrealCooja extends VisPlugin implements CoojaEventObserver{
     insertBuffer = new ArrayList<String>();
     try {
       udpSocket = new DatagramSocket(null);
-      //udpSocket.setReuseAddress(true);
       udpSocket.bind(new InetSocketAddress(PORT));
       logger.info("Listening on port " + PORT);
     } catch (IOException e){
       logger.info("Couldn't open socket on port " + PORT);
       logger.error(e.getMessage());
     }
-    udpHandler = new Thread(new IncomingDataHandler());
+    udpHandler = new IncomingDataHandler();
     udpHandler.start();
   }
 
@@ -138,19 +138,20 @@ public class UnrealCooja extends VisPlugin implements CoojaEventObserver{
 
   public void closePlugin() {
     /* Clean up plugin resources */
-    logger.info("Tidying up UnrealCooja listeners/observers");
-    if (!initialised) return;
-    networkObserver.deleteObserver();
-    sim.getEventCentral().removeMoteCountListener(moteCountListener);
-    for(MoteObserver mote : moteObservers) {
-      mote.deleteAllObservers();
-    }
+    logger.info("Closing Network Socket...");
     udpHandler.interrupt();
     try {
       udpHandler.join();
     } catch (InterruptedException e) {
       logger.info("Interrupted whilst waiting for udpHandler");
       logger.error(e.getMessage());
+    }
+    logger.info("Tidying up UnrealCooja listeners/observers");
+    if (!initialised) return;
+    networkObserver.deleteObserver();
+    sim.getEventCentral().removeMoteCountListener(moteCountListener);
+    for(MoteObserver mote : moteObservers) {
+      mote.deleteAllObservers();
     }
     logger.info("UnrealCooja cleaned up");
   }
@@ -199,65 +200,83 @@ public class UnrealCooja extends VisPlugin implements CoojaEventObserver{
 
 
   /* Forward data: Unreal Engine Mote -> Cooja mote */
-  private class IncomingDataHandler implements Runnable {
+  private class IncomingDataHandler extends Thread {
+    byte[] data = new byte[200];
+    DatagramPacket pkt = new DatagramPacket(data, 200);
+    Runnable toRun = null;
+    ByteBuffer bb;
+    Message msg;
+
     @Override
     public void run() {
-
       while (!Thread.currentThread().isInterrupted()) {
-        final byte[] data = new byte[200];
-        DatagramPacket pkt = new DatagramPacket(data, 200);
         try {
           udpSocket.receive(pkt);
-          logger.info("Got pkt " + pkt.getLength());
         } catch (IOException ex) {
           logger.error(ex);
         }
         //((SkyMote)sim.getMotes()[data[0]]).getCPU().getIOUnit("ADC12");
-        ByteBuffer bb = ByteBuffer.wrap(data);
-        final Message msg = Message.getRootAsMessage(bb);
+        bb = ByteBuffer.wrap(data);
+        msg = Message.getRootAsMessage(bb);
 
-        Runnable toRun = null;
         switch (msg.type()) {
+          case (MsgType.PAUSE): {
+            sim.stopSimulation();
+          }
+          case (MsgType.RESUME): {
+            sim.resumeSimulation();
+          }
           case (MsgType.PIR): {
+            // Check we have a mote matching the ID
+            if (sim.getMotes().length < msg.id()) {
+              logger.info("No mote for id: " + msg.id());
+              break;
+            }
+            // Update it in seperate simulation thread.
             toRun = new Runnable() {
               @Override
               public void run() {
-                logger.info("Got a button click for " + msg.id());
                 sim.getMotes()[msg.id()].getInterfaces().getButton().clickButton();
               }
             };
             break;
           }
           case (MsgType.LOCATION): {
+            // Check we have a mote matching the ID
+            if (sim.getMotes().length < msg.id()) {
+              logger.info("No mote for id: " + msg.id());
+              break;
+            }
+            // Update it in seperate simulation thread.
             toRun = new Runnable() {
               @Override
               public void run() {
-                logger.info("Got a location update for " + msg.id());
-                logger.info("X: " + msg.location().x() + " Y: " + msg.location().y() +
-                        " Z: " + msg.location().z());
-                logger.info(sim.getMotes().length);
-                sim.getMotes()[msg.id()].getInterfaces().getPosition().setCoordinates(
-                        msg.location().x()/100,
-                        msg.location().y()/100,
-                        msg.location().z()/100);
-                /* Get coordinates from packet (Protobuf?)
-                sim.getMotes()[data[0]].getInterfaces().getPosition().setCoordinates()
-                */
+                //logger.info("Got a location update for " + msg.id());
+                // logger.info("X: " + msg.location().x() +
+                //             " Y: " + msg.location().y() +
+                //             " Z: " + msg.location().z());
+                sim.getMotes()[msg.id()].getInterfaces().getPosition().
+                        setCoordinates(msg.location().x()/100,
+                                       msg.location().y()/100,
+                                       msg.location().z()/100);
               }
             };
             break;
           }
           default: {
-            logger.info("Not recognised");
+            logger.info("Message type not recognised");
           }
         }
         if (toRun != null) sim.invokeSimulationThread(toRun);
+        toRun = null;
       }
+      logger.info("Interrupted: Exited UDP SOCKET read loop, closing socket");
       udpSocket.close();
     }
+    public void interrupt() {
+      super.interrupt();
+      udpSocket.close();
+      logger.info("Socket Closed");
+    }
   }
-
-
 }
-/* transmissions (id integer, startT integer, endT integer, src integer, rxd integer, crxd integer, pktSize integer)
-     connections (id integer, startT integer, endT integer, src integer, dst integer, interfered boolean, pktSize integer); */

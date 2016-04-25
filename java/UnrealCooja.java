@@ -201,30 +201,33 @@ public class UnrealCooja extends VisPlugin implements CoojaEventObserver{
 
   /* Forward data: Unreal Engine Mote -> Cooja mote */
   private class IncomingDataHandler extends Thread {
-    byte[] data = new byte[200];
-    DatagramPacket pkt = new DatagramPacket(data, 200);
-    Runnable toRun = null;
-    ByteBuffer bb;
-    Message msg;
+
+
+    // ByteBuffer bb;
+    // Message msg;
 
     @Override
     public void run() {
       while (!Thread.currentThread().isInterrupted()) {
+        byte[] data = new byte[200];
+        DatagramPacket pkt = new DatagramPacket(data, 200);
         try {
           udpSocket.receive(pkt);
         } catch (IOException ex) {
           logger.error(ex);
         }
         //((SkyMote)sim.getMotes()[data[0]]).getCPU().getIOUnit("ADC12");
-        bb = ByteBuffer.wrap(data);
-        msg = Message.getRootAsMessage(bb);
-
+        ByteBuffer bb = ByteBuffer.wrap(data);
+        final Message msg = Message.getRootAsMessage(bb);
+        Runnable toRun = null;
         switch (msg.type()) {
           case (MsgType.PAUSE): {
             sim.stopSimulation();
+            break;
           }
           case (MsgType.RESUME): {
-            sim.resumeSimulation();
+            sim.startSimulation();
+            break;
           }
           case (MsgType.PIR): {
             // Check we have a mote matching the ID
@@ -251,7 +254,7 @@ public class UnrealCooja extends VisPlugin implements CoojaEventObserver{
             toRun = new Runnable() {
               @Override
               public void run() {
-                //logger.info("Got a location update for " + msg.id());
+                // logger.info("Got a location update for " + msg.id());
                 // logger.info("X: " + msg.location().x() +
                 //             " Y: " + msg.location().y() +
                 //             " Z: " + msg.location().z());
@@ -268,7 +271,7 @@ public class UnrealCooja extends VisPlugin implements CoojaEventObserver{
           }
         }
         if (toRun != null) sim.invokeSimulationThread(toRun);
-        toRun = null;
+
       }
       logger.info("Interrupted: Exited UDP SOCKET read loop, closing socket");
       udpSocket.close();

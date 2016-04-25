@@ -13,8 +13,8 @@ import org.contikios.cooja.RadioMedium;
 import org.contikios.cooja.interfaces.Radio;
 
 /* Radio Event Observer
- * 
- * A specialised event observer for a mote's radio interface events 
+ *
+ * A specialised event observer for a mote's radio interface events
  */
 @ClassDescription("Radio Medium Event Observer")
 public class RadioMediumEventObserver implements Observer {
@@ -45,6 +45,7 @@ public class RadioMediumEventObserver implements Observer {
 //		parent.radioMediumEventHandler(network.getLastConnection());
 		RadioConnection conn = network.getLastConnection();
 		if (conn == null) return;
+		//logger.info(conn);
 		Radio[] dests = conn.getDestinations();
 		if (dests.length == 0) return;
 		data = new byte[3 + dests.length];

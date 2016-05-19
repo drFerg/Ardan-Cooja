@@ -28,13 +28,13 @@ public class RadioMediumEventObserver implements Observer {
 	DatagramPacket sendPacket;
 	byte[] data;
 
-	public RadioMediumEventObserver(CoojaEventObserver parent, RadioMedium network, String ipAddr, int port){
+	public RadioMediumEventObserver(CoojaEventObserver parent, RadioMedium network, String clientIPAddr, int clientPort){
 		this.network = network;
 		this.parent = parent;
-		this.port = port;
+		this.port = clientPort;
 		try {
 			clientSocket = new DatagramSocket();
-			ipAddress = InetAddress.getByName(ipAddr);
+			ipAddress = InetAddress.getByName(clientIPAddr);
 		} catch (Exception e) {
 			logger.error("RMEO>> " + e.getMessage());
 		}

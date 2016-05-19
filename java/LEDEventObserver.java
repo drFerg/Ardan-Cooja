@@ -21,15 +21,19 @@ public class LEDEventObserver extends InterfaceEventObserver {
     InetAddress ipAddress;
     DatagramPacket sendPacket;
     byte[] status;
+    int port;
 
     public LEDEventObserver(MoteObserver parent, Mote mote,
-                            Observable interfaceToObserve) {
+                            Observable interfaceToObserve,
+                            String clientIPAddr, int clientPort) {
+                              
         super(parent, mote, interfaceToObserve);
         this.leds = (LED) interfaceToObserve;
+        this.port = clientPort;
         logger.info("Created LED observer");
         try {
             clientSocket = new DatagramSocket();
-            ipAddress = InetAddress.getByName("localhost");
+            ipAddress = InetAddress.getByName(clientIPAddr);
         } catch (Exception e) {
             logger.error("LEDEO>> " + e.getMessage());
         }
@@ -44,7 +48,7 @@ public class LEDEventObserver extends InterfaceEventObserver {
         status[3] = (byte) (leds.isGreenOn()? 1: 0);
         status[4] = (byte) (leds.isYellowOn()? 1: 0);
         try {
-            sendPacket = new DatagramPacket(status, status.length, ipAddress, 5000);
+            sendPacket = new DatagramPacket(status, status.length, ipAddress, port);
             clientSocket.send(sendPacket);
         } catch (Exception e) {
             logger.info(e.getMessage());

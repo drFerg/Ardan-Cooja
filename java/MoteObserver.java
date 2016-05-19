@@ -9,9 +9,9 @@ import org.contikios.cooja.MoteInterface;
 import org.contikios.cooja.interfaces.Radio;
 import se.sics.mspsim.core.MSP430;
 
-/* MoteObserver 
- * 
- * Contains all the interface observers for each interface within a mote 
+/* MoteObserver
+ *
+ * Contains all the interface observers for each interface within a mote
  */
 @ClassDescription("Mote Observer")
 public class MoteObserver {
@@ -21,11 +21,14 @@ public class MoteObserver {
     protected ArrayList<InterfaceEventObserver> observers;
     protected LED leds;
     private static Logger logger = Logger.getLogger(MoteObserver.class);
+    String ipAddr;
+    int port;
 
-
-    public MoteObserver(CoojaEventObserver parent, Mote moteToObserve) {
+    public MoteObserver(CoojaEventObserver parent, Mote moteToObserve, String clientIPAddr, int clientPort) {
       this.parent = parent;
       this.mote = moteToObserve;
+      ipAddr = clientIPAddr;
+      port = clientPort;
       observers = new ArrayList<InterfaceEventObserver>();
       observeAll();
     }
@@ -39,10 +42,10 @@ public class MoteObserver {
 //          if (mi instanceof Radio)
 //            observers.add(new RadioEventObserver(this, mote, mi));
             if (mi instanceof LED)
-              observers.add(new LEDEventObserver(this, mote, mi));
+              observers.add(new LEDEventObserver(this, mote, mi, ipAddr, port));
           // else
           //   observers.add(new InterfaceEventObserver(this, mote, mi));
-        } 
+        }
       }
     }
 
@@ -61,6 +64,3 @@ public class MoteObserver {
       parent.cpuEventHandler(cpu, mote);
     }
   }
-
-  
-  

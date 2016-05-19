@@ -170,7 +170,7 @@ public class UnrealCooja extends VisPlugin implements CoojaEventObserver{
   /* Adds a new mote to the observed set of motes
    * Needed for use in listener, to access /this/ context */
   public void addMote(Mote mote){
-    moteObservers.add(new MoteObserver(this, mote));
+    moteObservers.add(new MoteObserver(this, mote, clientIPAddr, clientPort));
   }
 
   public void closePlugin() {

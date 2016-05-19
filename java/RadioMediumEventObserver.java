@@ -24,15 +24,17 @@ public class RadioMediumEventObserver implements Observer {
 	protected static Logger logger = Logger.getLogger(InterfaceEventObserver.class);
 	DatagramSocket clientSocket;
 	InetAddress ipAddress;
+	int port;
 	DatagramPacket sendPacket;
 	byte[] data;
 
 	public RadioMediumEventObserver(CoojaEventObserver parent, RadioMedium network, String ipAddr, int port){
 		this.network = network;
 		this.parent = parent;
+		this.port = port;
 		try {
 			clientSocket = new DatagramSocket();
-			ipAddress = InetAddress.getByName("localhost");
+			ipAddress = InetAddress.getByName(ipAddr);
 		} catch (Exception e) {
 			logger.error("RMEO>> " + e.getMessage());
 		}
@@ -56,7 +58,7 @@ public class RadioMediumEventObserver implements Observer {
 			data[3 + i] = (byte) (dests[i].getMote().getID() - 1);
 		}
 		try {
-			sendPacket= new DatagramPacket(data, data.length, ipAddress, 5000);
+			sendPacket= new DatagramPacket(data, data.length, ipAddress, port);
 			clientSocket.send(sendPacket);
 		} catch (Exception e) {
 			logger.info(e.getMessage());

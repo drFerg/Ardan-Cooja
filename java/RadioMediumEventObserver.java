@@ -27,7 +27,7 @@ public class RadioMediumEventObserver implements Observer {
 	DatagramPacket sendPacket;
 	byte[] data;
 
-	public RadioMediumEventObserver(CoojaEventObserver parent, RadioMedium network){
+	public RadioMediumEventObserver(CoojaEventObserver parent, RadioMedium network, String ipAddr, int port){
 		this.network = network;
 		this.parent = parent;
 		try {

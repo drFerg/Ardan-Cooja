@@ -1,9 +1,11 @@
+
+
+import UnrealCoojaMsg.Message;
+import UnrealCoojaMsg.MsgType;
+import com.google.flatbuffers.*;
 import java.awt.BorderLayout;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
-
-import javax.swing.JButton;
-
 import java.io.DataInputStream;
 import java.io.IOException;
 import java.net.DatagramPacket;
@@ -13,21 +15,23 @@ import java.net.SocketAddress;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 
-import com.google.flatbuffers.*;
-import UnrealCoojaMsg.Message;
-import UnrealCoojaMsg.MsgType;
+import javax.swing.JButton;
+import javax.swing.JLabel;
+import javax.swing.JTextField;
+import javax.swing.BoxLayout;
+
 import org.apache.log4j.Logger;
-import org.contikios.cooja.mspmote.MspMote;
 import org.contikios.cooja.ClassDescription;
-import org.contikios.cooja.PluginType;
 import org.contikios.cooja.Cooja;
 import org.contikios.cooja.Mote;
-import org.contikios.cooja.interfaces.Radio;
+import org.contikios.cooja.PluginType;
 import org.contikios.cooja.RadioConnection;
 import org.contikios.cooja.RadioMedium;
 import org.contikios.cooja.SimEventCentral.MoteCountListener;
 import org.contikios.cooja.Simulation;
 import org.contikios.cooja.VisPlugin;
+import org.contikios.cooja.interfaces.Radio;
+import org.contikios.cooja.mspmote.MspMote;
 import org.contikios.cooja.mspmote.SkyMote;
 import org.contikios.cooja.mspmote.interfaces.SkyTemperature;
 import se.sics.mspsim.core.MSP430;
@@ -51,9 +55,11 @@ import se.sics.mspsim.core.MSP430;
 public class UnrealCooja extends VisPlugin implements CoojaEventObserver{
   private static final long serialVersionUID = 4368807123350830772L;
   private static Logger logger = Logger.getLogger(UnrealCooja.class);
-  private final Thread udpHandler;
+  private Thread udpHandler;
   private DatagramSocket udpSocket;
-  private int PORT = 5011;
+  private int clientPort = 5000;
+  private String clientIPAddr = "localhost";
+  private int hostPort = 5011;
   private Simulation sim;
   private RadioMedium radioMedium;
   private RadioMediumEventObserver networkObserver;
@@ -68,6 +74,10 @@ public class UnrealCooja extends VisPlugin implements CoojaEventObserver{
   private int count = 0;
   private long connections = 0;
   private boolean mesh = true;
+
+  private JTextField hostPortField;
+  private JTextField clientPortField;
+  private JTextField ipAddrField;
   /**
    * @param simulation Simulation object
    * @param gui GUI object
@@ -77,7 +87,8 @@ public class UnrealCooja extends VisPlugin implements CoojaEventObserver{
     sim = simulation;
     radioMedium = sim.getRadioMedium();
     this.gui = gui;
-
+    //JPanel listPane = new JPanel();
+    this.getContentPane().setLayout(new BoxLayout(this.getContentPane(), BoxLayout.PAGE_AXIS));
 
     /* Initialise Observers button */
     JButton button = new JButton("Observe");
@@ -86,30 +97,43 @@ public class UnrealCooja extends VisPlugin implements CoojaEventObserver{
         if (!initialised) initObservers();
       }
     });
-    this.getContentPane().add(BorderLayout.NORTH, button);
-    setSize(300,100);
+    add(button);
+    /* Text field */
+    JLabel ipLabel = new JLabel("IP:");
+    add(ipLabel);
+    ipAddrField = new JTextField(clientIPAddr);
+    add(ipAddrField);
+
+
+    JLabel clientPortLabel = new JLabel("Client Port:");
+    add(clientPortLabel);
+    clientPortField = new JTextField("" + clientPort);
+    add(clientPortField);
+
+    JLabel portLabel = new JLabel("Host Port:");
+    add(portLabel);
+    hostPortField = new JTextField("" + hostPort);
+    add(hostPortField);
+    setSize(300, 300);
     insertBuffer = new ArrayList<String>();
-    try {
-      udpSocket = new DatagramSocket(null);
-      udpSocket.bind(new InetSocketAddress(PORT));
-      logger.info("Listening on port " + PORT);
-    } catch (IOException e){
-      logger.info("Couldn't open socket on port " + PORT);
-      logger.error(e.getMessage());
-    }
-    udpHandler = new IncomingDataHandler();
-    udpHandler.start();
+
   }
 
   public void initObservers() {
+
     /* Check for class loaders, if not the same class casting won't work, reload to fix */
     if ((sim.getMotes()[0].getClass().getClassLoader() != this.getClass().getClassLoader()) &&
         (sim.getMotes()[0].getClass().getClassLoader() != gui.getClass().getClassLoader())) {
           logger.info("Different class loaders - Reload to fix");
           return;
     }
+
+    hostPort = Integer.parseInt(hostPortField.getText());
+    clientPort = Integer.parseInt(clientPortField.getText());
+    clientIPAddr = ipAddrField.getText();
+
     initialised = true;
-    networkObserver = new RadioMediumEventObserver(this, radioMedium);
+    networkObserver = new RadioMediumEventObserver(this, radioMedium, clientIPAddr, clientPort);
     /* Create observers for each mote */
     moteObservers = new ArrayList<MoteObserver>();
     for(Mote mote : sim.getMotes()) {
@@ -128,6 +152,19 @@ public class UnrealCooja extends VisPlugin implements CoojaEventObserver{
         logger.info("Removed a mote");
       }
     });
+
+
+
+    try {
+      udpSocket = new DatagramSocket(null);
+      udpSocket.bind(new InetSocketAddress(hostPort));
+      logger.info("Listening on port " + hostPort);
+    } catch (IOException e){
+      logger.info("Couldn't open socket on port " + hostPort);
+      logger.error(e.getMessage());
+    }
+    udpHandler = new IncomingDataHandler();
+    udpHandler.start();
   }
 
   /* Adds a new mote to the observed set of motes

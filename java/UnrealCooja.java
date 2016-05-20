@@ -258,6 +258,14 @@ public class UnrealCooja extends VisPlugin implements CoojaEventObserver{
         final Message msg = Message.getRootAsMessage(bb);
         Runnable toRun = null;
         switch (msg.type()) {
+          case (MsgType.SPEED_NORM): {
+            sim.setSpeedLimit(1.0);
+            break;
+          }
+          case (MsgType.SPEED_SLOW): {
+            sim.setSpeedLimit(0.1);
+            break;
+          }
           case (MsgType.PAUSE): {
             sim.stopSimulation();
             break;

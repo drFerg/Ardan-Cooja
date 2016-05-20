@@ -10,8 +10,10 @@ public final class MsgType {
   public static final byte PIR = 4;
   public static final byte PAUSE = 5;
   public static final byte RESUME = 6;
+  public static final byte SPEED_NORM = 7;
+  public static final byte SPEED_SLOW = 8;
 
-  private static final String[] names = { "LED", "LOCATION", "RADIO", "PIR", "PAUSE", "RESUME", };
+  private static final String[] names = { "LED", "LOCATION", "RADIO", "PIR", "PAUSE", "RESUME", "SPEED_NORM", "SPEED_SLOW", };
 
   public static String name(int e) { return names[e - LED]; }
 };

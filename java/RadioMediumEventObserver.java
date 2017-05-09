@@ -5,6 +5,9 @@ import java.util.Observable;
 import java.util.Observer;
 
 import org.apache.log4j.Logger;
+import UnrealCoojaMsg.Message;
+import UnrealCoojaMsg.MsgType;
+import com.google.flatbuffers.*;
 
 import org.contikios.cooja.ClassDescription;
 
@@ -26,7 +29,6 @@ public class RadioMediumEventObserver implements Observer {
 	InetAddress ipAddress;
 	int port;
 	DatagramPacket sendPacket;
-	byte[] data;
 
 	public RadioMediumEventObserver(CoojaEventObserver parent, RadioMedium network, InetAddress clientIPAddr, int clientPort){
 		this.network = network;
@@ -50,13 +52,18 @@ public class RadioMediumEventObserver implements Observer {
 		//logger.info(conn);
 		Radio[] dests = conn.getDestinations();
 		if (dests.length == 0) return;
-		data = new byte[3 + dests.length];
-		data[0] = NETWORK_PKT;
-		data[1] = (byte) (conn.getSource().getMote().getID() - 1);
-		data[2] = (byte) dests.length;
+		FlatBufferBuilder builder = new FlatBufferBuilder(1024);
+    Message.startMessage(builder);
+		Message.addType(builder, MsgType.RADIO);
+		Message.addId(builder, conn.getSource().getMote().getID() - 1);
+		int[] dsts = new int[dests.length];
 		for (int i = 0; i < dests.length; i++) {
-			data[3 + i] = (byte) (dests[i].getMote().getID() - 1);
+			dsts[i] = (byte) (dests[i].getMote().getID() - 1);
 		}
+		Message.createRcvdVector(builder, dsts);
+		int msg = Message.endMessage(builder);
+    builder.finish(msg);
+    byte[] data = builder.sizedByteArray();
 		try {
 			sendPacket = new DatagramPacket(data, data.length, ipAddress, port);
 			clientSocket.send(sendPacket);

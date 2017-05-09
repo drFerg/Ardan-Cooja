@@ -1,9 +1,8 @@
-
-
 import UnrealCoojaMsg.Message;
 import UnrealCoojaMsg.MsgType;
 import UnrealCoojaMsg.RadioDuty;
 import com.google.flatbuffers.*;
+
 import java.awt.BorderLayout;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;

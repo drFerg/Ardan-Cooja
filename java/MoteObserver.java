@@ -1,4 +1,5 @@
 import java.util.ArrayList;
+import java.net.InetAddress;
 
 import org.apache.log4j.Logger;
 import org.contikios.cooja.interfaces.LED;
@@ -21,10 +22,10 @@ public class MoteObserver {
     protected ArrayList<InterfaceEventObserver> observers;
     protected LED leds;
     private static Logger logger = Logger.getLogger(MoteObserver.class);
-    String ipAddr;
+    InetAddress ipAddr;
     int port;
 
-    public MoteObserver(CoojaEventObserver parent, Mote moteToObserve, String clientIPAddr, int clientPort) {
+    public MoteObserver(CoojaEventObserver parent, Mote moteToObserve, InetAddress clientIPAddr, int clientPort) {
       this.parent = parent;
       this.mote = moteToObserve;
       ipAddr = clientIPAddr;

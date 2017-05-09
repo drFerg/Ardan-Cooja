@@ -25,6 +25,7 @@
         <pathelement location="${cooja_jar}"/>
         <pathelement location="${mspsim_jar}"/>
         <pathelement location="${cooja_mspsim_jar}"/>
+	<pathelement location="/home/user/dev/flatbuffers/java/"/>
       </classpath>
     </javac>
   </target>

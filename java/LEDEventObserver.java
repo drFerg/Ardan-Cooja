@@ -25,15 +25,15 @@ public class LEDEventObserver extends InterfaceEventObserver {
 
     public LEDEventObserver(MoteObserver parent, Mote mote,
                             Observable interfaceToObserve,
-                            String clientIPAddr, int clientPort) {
-                              
+                            InetAddress clientIPAddr, int clientPort) {
+
         super(parent, mote, interfaceToObserve);
         this.leds = (LED) interfaceToObserve;
         this.port = clientPort;
         logger.info("Created LED observer");
         try {
             clientSocket = new DatagramSocket();
-            ipAddress = InetAddress.getByName(clientIPAddr);
+            ipAddress = clientIPAddr;
         } catch (Exception e) {
             logger.error("LEDEO>> " + e.getMessage());
         }

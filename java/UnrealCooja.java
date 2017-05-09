@@ -2,6 +2,7 @@
 
 import UnrealCoojaMsg.Message;
 import UnrealCoojaMsg.MsgType;
+import UnrealCoojaMsg.RadioDuty;
 import com.google.flatbuffers.*;
 import java.awt.BorderLayout;
 import java.awt.event.ActionEvent;
@@ -10,10 +11,13 @@ import java.io.DataInputStream;
 import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
+import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
+import java.util.Observable;
+import java.util.Observer;
 
 import javax.swing.JButton;
 import javax.swing.JLabel;
@@ -29,6 +33,7 @@ import org.contikios.cooja.RadioConnection;
 import org.contikios.cooja.RadioMedium;
 import org.contikios.cooja.SimEventCentral.MoteCountListener;
 import org.contikios.cooja.Simulation;
+import org.contikios.cooja.TimeEvent;
 import org.contikios.cooja.VisPlugin;
 import org.contikios.cooja.interfaces.Radio;
 import org.contikios.cooja.mspmote.MspMote;
@@ -52,13 +57,15 @@ import se.sics.mspsim.core.MSP430;
  */
 @ClassDescription("Unreal Cooja") /* Description shown in menu */
 @PluginType(PluginType.SIM_PLUGIN)
-public class UnrealCooja extends VisPlugin implements CoojaEventObserver{
+public class UnrealCooja extends VisPlugin implements CoojaEventObserver, Observer{
   private static final long serialVersionUID = 4368807123350830772L;
   private static Logger logger = Logger.getLogger(UnrealCooja.class);
   private Thread udpHandler;
   private DatagramSocket udpSocket;
   private int clientPort = 5000;
-  private String clientIPAddr = "localhost";
+  private static String clientIPAddrStr = "localhost";
+  private InetAddress clientIPAddr;
+
   private int hostPort = 5011;
   private Simulation sim;
   private RadioMedium radioMedium;
@@ -78,6 +85,58 @@ public class UnrealCooja extends VisPlugin implements CoojaEventObserver{
   private JTextField hostPortField;
   private JTextField clientPortField;
   private JTextField ipAddrField;
+
+  private ArrayList<MoteTracker> moteTrackers;
+  private static final long SECOND = 1000 * Simulation.MILLISECOND;
+  private boolean hasSecondObservers = false;
+  private SecondObservable secondObservable = new SecondObservable();
+  private class SecondObservable extends Observable {
+   private void newSecond(long time) {
+     setChanged();
+     notifyObservers(time);
+    }
+  }
+
+  public void addSecondObserver(Observer newObserver) {
+    secondObservable.addObserver(newObserver);
+    hasSecondObservers = true;
+
+    sim.invokeSimulationThread(new Runnable() {
+      public void run() {
+        if (!secondEvent.isScheduled()) {
+          sim.scheduleEvent(
+              secondEvent,
+              sim.getSimulationTime() - (sim.getSimulationTime() % SECOND) + SECOND);
+        }
+      }
+    });
+  }
+
+  private TimeEvent secondEvent = new TimeEvent(0) {
+      public void execute(long t) {
+        if (!hasSecondObservers) {
+          return;
+        }
+
+        secondObservable.newSecond(sim.getSimulationTime());
+        sim.scheduleEvent(this, t + SECOND);
+      }
+      public String toString() {
+        return "SECOND: " + secondObservable.countObservers();
+      }
+  };
+  /**
+   * Delete millisecond observer.
+   *
+   * @see #addMillisecondObserver(Observer)
+   * @param observer Observer to delete
+   */
+  public void deleteSecondObserver(Observer observer) {
+    secondObservable.deleteObserver(observer);
+    hasSecondObservers = secondObservable.countObservers() > 0;
+  }
+
+
   /**
    * @param simulation Simulation object
    * @param gui GUI object
@@ -101,7 +160,7 @@ public class UnrealCooja extends VisPlugin implements CoojaEventObserver{
     /* Text field */
     JLabel ipLabel = new JLabel("IP:");
     add(ipLabel);
-    ipAddrField = new JTextField(clientIPAddr);
+    ipAddrField = new JTextField(clientIPAddrStr);
     add(ipAddrField);
 
 
@@ -119,6 +178,32 @@ public class UnrealCooja extends VisPlugin implements CoojaEventObserver{
 
   }
 
+  public void update(Observable obs, Object obj) {
+    DatagramPacket sendPacket;
+    FlatBufferBuilder builder = new FlatBufferBuilder(1024);
+    Message.startMessage(builder);
+    Message.addType(builder, MsgType.RADIO_DUTY);
+    Message.startNodeVector(builder, moteTrackers.size());
+    for (MoteTracker t: moteTrackers) {
+      Message.addNode(builder,
+        RadioDuty.createRadioDuty(builder,
+          t.getRadioOnRatio(),
+          t.getRadioTxRatio(),
+          t.getRadioRxRatio(),
+          t.getRadioInterferedRatio())
+        );
+    }
+    int msg = Message.endMessage(builder);
+    builder.finish(msg);
+    byte[] data = builder.sizedByteArray();
+    try {
+			sendPacket = new DatagramPacket(data, data.length, clientIPAddr, clientPort);
+			udpSocket.send(sendPacket);
+		} catch (Exception e) {
+			logger.info(e.getMessage());
+		}
+  }
+
   public void initObservers() {
 
     /* Check for class loaders, if not the same class casting won't work, reload to fix */
@@ -130,12 +215,17 @@ public class UnrealCooja extends VisPlugin implements CoojaEventObserver{
 
     hostPort = Integer.parseInt(hostPortField.getText());
     clientPort = Integer.parseInt(clientPortField.getText());
-    clientIPAddr = ipAddrField.getText();
+    try {
+      clientIPAddr = InetAddress.getByName(ipAddrField.getText());
+    } catch (Exception e) {
+      logger.error("UnrealCooja>> " + e.getMessage());
 
+    }
     initialised = true;
     networkObserver = new RadioMediumEventObserver(this, radioMedium, clientIPAddr, clientPort);
     /* Create observers for each mote */
     moteObservers = new ArrayList<MoteObserver>();
+    moteTrackers = new ArrayList<MoteTracker>();
     for(Mote mote : sim.getMotes()) {
       addMote(mote);
     }
@@ -165,12 +255,15 @@ public class UnrealCooja extends VisPlugin implements CoojaEventObserver{
     }
     udpHandler = new IncomingDataHandler();
     udpHandler.start();
+
+    addSecondObserver(this);
   }
 
   /* Adds a new mote to the observed set of motes
    * Needed for use in listener, to access /this/ context */
   public void addMote(Mote mote){
     moteObservers.add(new MoteObserver(this, mote, clientIPAddr, clientPort));
+    moteTrackers.add(new MoteTracker(mote));
   }
 
   public void closePlugin() {
@@ -189,6 +282,10 @@ public class UnrealCooja extends VisPlugin implements CoojaEventObserver{
     sim.getEventCentral().removeMoteCountListener(moteCountListener);
     for(MoteObserver mote : moteObservers) {
       mote.deleteAllObservers();
+    }
+    for (MoteTracker t: moteTrackers) {
+      t.dispose();
+      moteTrackers.remove(t);
     }
     logger.info("UnrealCooja cleaned up");
   }

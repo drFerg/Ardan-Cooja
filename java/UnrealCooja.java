@@ -180,19 +180,20 @@ public class UnrealCooja extends VisPlugin implements CoojaEventObserver, Observ
   public void update(Observable obs, Object obj) {
     DatagramPacket sendPacket;
     FlatBufferBuilder builder = new FlatBufferBuilder(1024);
-    Message.startMessage(builder);
-    Message.addType(builder, MsgType.RADIO_DUTY);
     Message.startNodeVector(builder, moteTrackers.size());
     for (MoteTracker t: moteTrackers) {
-      Message.addNode(builder,
         RadioDuty.createRadioDuty(builder,
           t.getRadioOnRatio(),
           t.getRadioTxRatio(),
           t.getRadioRxRatio(),
-          t.getRadioInterferedRatio())
+          t.getRadioInterferedRatio()
         );
     }
-    int msg = Message.endMessage(builder);
+    int nodevec = builder.endVector();
+    Message.startMessage(builder);
+    Message.addType(builder, MsgType.RADIO_DUTY);
+    Message.addNode(builder, nodevec)
+;    int msg = Message.endMessage(builder);
     builder.finish(msg);
     byte[] data = builder.sizedByteArray();
     try {

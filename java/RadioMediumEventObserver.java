@@ -53,14 +53,15 @@ public class RadioMediumEventObserver implements Observer {
 		Radio[] dests = conn.getDestinations();
 		if (dests.length == 0) return;
 		FlatBufferBuilder builder = new FlatBufferBuilder(1024);
-    Message.startMessage(builder);
-		Message.addType(builder, MsgType.RADIO);
-		Message.addId(builder, conn.getSource().getMote().getID() - 1);
 		int[] dsts = new int[dests.length];
 		for (int i = 0; i < dests.length; i++) {
 			dsts[i] = (byte) (dests[i].getMote().getID() - 1);
 		}
-		Message.createRcvdVector(builder, dsts);
+		int rcvd = Message.createRcvdVector(builder, dsts);
+    Message.startMessage(builder);
+		Message.addType(builder, MsgType.RADIO);
+		Message.addId(builder, conn.getSource().getMote().getID() - 1);
+		Message.addRcvd(builder, rcvd);
 		int msg = Message.endMessage(builder);
     builder.finish(msg);
     byte[] data = builder.sizedByteArray();

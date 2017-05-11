@@ -192,10 +192,12 @@ public class UnrealCooja extends VisPlugin implements CoojaEventObserver, Observ
     int nodevec = builder.endVector();
     Message.startMessage(builder);
     Message.addType(builder, MsgType.RADIO_DUTY);
-    Message.addNode(builder, nodevec)
-;    int msg = Message.endMessage(builder);
+    Message.addNode(builder, nodevec);
+    int msg = Message.endMessage(builder);
     builder.finish(msg);
+    Message m = Message.getRootAsMessage(builder.dataBuffer());
     byte[] data = builder.sizedByteArray();
+    logger.info("BUILDER:" + m.nodeLength());
     try {
 			sendPacket = new DatagramPacket(data, data.length, clientIPAddr, clientPort);
 			udpSocket.send(sendPacket);

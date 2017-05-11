@@ -63,8 +63,12 @@ public class RadioMediumEventObserver implements Observer {
 		Message.addId(builder, conn.getSource().getMote().getID() - 1);
 		Message.addRcvd(builder, rcvd);
 		int msg = Message.endMessage(builder);
-    builder.finish(msg);
+    Message.finishMessageBuffer(builder, msg);
     byte[] data = builder.sizedByteArray();
+		java.nio.ByteBuffer buf = java.nio.ByteBuffer.wrap(data);
+// Get an accessor to the root object inside the buffer.
+		Message monster = Message.getRootAsMessage(buf);
+		logger.info("MESSAGE:" + monster.type());
 		try {
 			sendPacket = new DatagramPacket(data, data.length, ipAddress, port);
 			clientSocket.send(sendPacket);

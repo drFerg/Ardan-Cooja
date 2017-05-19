@@ -119,6 +119,7 @@ public class UnrealCooja extends VisPlugin implements CoojaEventObserver, Observ
 
         secondObservable.newSecond(sim.getSimulationTime());
         sim.scheduleEvent(this, t + SECOND);
+        logger.info("Second event!");
       }
       public String toString() {
         return "SECOND: " + secondObservable.countObservers();
@@ -197,9 +198,9 @@ public class UnrealCooja extends VisPlugin implements CoojaEventObserver, Observ
     builder.finish(msg);
     Message m = Message.getRootAsMessage(builder.dataBuffer());
     byte[] data = builder.sizedByteArray();
-    logger.info("BUILDER:" + m.nodeLength());
     try {
 			sendPacket = new DatagramPacket(data, data.length, clientIPAddr, clientPort);
+      // logger.info("GOT DUTY");
 			udpSocket.send(sendPacket);
 		} catch (Exception e) {
 			logger.info(e.getMessage());

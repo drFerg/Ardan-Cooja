@@ -8,6 +8,9 @@ import java.net.InetAddress;
 import java.util.Observable;
 import java.util.Observer;
 
+import UnrealCoojaMsg.Message;
+import UnrealCoojaMsg.MsgType;
+import com.google.flatbuffers.*;
 /**
  * Created by fergus on 09/11/15.
  */
@@ -20,7 +23,7 @@ public class LEDEventObserver extends InterfaceEventObserver {
     DatagramSocket clientSocket;
     InetAddress ipAddress;
     DatagramPacket sendPacket;
-    byte[] status;
+    int[] status;
     int port;
 
     public LEDEventObserver(MoteObserver parent, Mote mote,
@@ -37,18 +40,27 @@ public class LEDEventObserver extends InterfaceEventObserver {
         } catch (Exception e) {
             logger.error("LEDEO>> " + e.getMessage());
         }
-        status = new byte[5];
-        status[0] = (byte) 0;
+        status = new int[3];
     }
 
     @Override
     public void update(Observable observable, Object o) {
-        status[1] = (byte) (mote.getID() - 1);
-        status[2] = (byte) (leds.isRedOn()? 1: 0);
-        status[3] = (byte) (leds.isGreenOn()? 1: 0);
-        status[4] = (byte) (leds.isYellowOn()? 1: 0);
+        status[0] = (leds.isRedOn()? 1: 0);
+        status[1] = (leds.isGreenOn()? 1: 0);
+        status[2] = (leds.isYellowOn()? 1: 0);
+
+        FlatBufferBuilder builder = new FlatBufferBuilder(1024);
+        int ledVec = Message.createLedVector(builder, status);
+        Message.startMessage(builder);
+    		Message.addType(builder, MsgType.LED);
+    		Message.addId(builder, mote.getID() - 1);
+    		Message.addLed(builder, ledVec);
+    		int msg = Message.endMessage(builder);
+        Message.finishMessageBuffer(builder, msg);
+        byte[] data = builder.sizedByteArray();
+
         try {
-            sendPacket = new DatagramPacket(status, status.length, ipAddress, port);
+            sendPacket = new DatagramPacket(data, data.length, ipAddress, port);
             clientSocket.send(sendPacket);
         } catch (Exception e) {
             logger.info(e.getMessage());

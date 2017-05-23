@@ -374,7 +374,7 @@ public class UnrealCooja extends VisPlugin implements CoojaEventObserver, Observ
             sim.startSimulation();
             break;
           }
-          case (MsgType.PIR): {
+          case (MsgType.FIRE): {
             // Check we have a mote matching the ID
             if (sim.getMotes().length < msg.id()) {
               logger.info("No mote for id: " + msg.id());

@@ -350,7 +350,7 @@ public class UnrealCooja extends VisPlugin implements CoojaEventObserver, Observ
 
     // ByteBuffer bb;
     // Message msg;
-    private static Consumer<Long, String> createConsumer() {
+    private Consumer<Long, String> createConsumer() {
         final Properties props = new Properties();
         props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG,
                                     BOOTSTRAP_SERVERS);
@@ -369,7 +369,7 @@ public class UnrealCooja extends VisPlugin implements CoojaEventObserver, Observ
 
     }
 
-    static void runConsumer() throws InterruptedException {
+    void runConsumer() throws InterruptedException {
 
     final Consumer<Long, String> consumer = createConsumer();
     final int giveUp = 100;   int noRecordsCount = 0;
@@ -381,11 +381,11 @@ public class UnrealCooja extends VisPlugin implements CoojaEventObserver, Observ
             if (noRecordsCount > giveUp) break;
             else continue;
         }
-        consumerRecords.forEach(record -> {
-            System.out.printf("Consumer Record:(%d, %s, %d, %d)\n",
-                    record.key(), record.value(),
-                    record.partition(), record.offset());
-        });
+        // consumerRecords.forEach(record -> {
+        //     System.out.printf("Consumer Record:(%d, %s, %d, %d)\n",
+        //             record.key(), record.value(),
+        //             record.partition(), record.offset());
+        // });
         consumer.commitAsync();
     }
     consumer.close();

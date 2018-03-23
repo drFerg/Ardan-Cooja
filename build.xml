@@ -25,7 +25,10 @@
         <pathelement location="${cooja_jar}"/>
         <pathelement location="${mspsim_jar}"/>
         <pathelement location="${cooja_mspsim_jar}"/>
-	<pathelement location="/home/user/dev/flatbuffers/java/"/>
+	      <pathelement location="/home/user/dev/flatbuffers/java/"/>
+        <fileset dir="/home/user/dev/kafka_2.12-1.0.1/libs/">
+        <include name="**/*.jar"/>
+      </fileset>
       </classpath>
     </javac>
   </target>

@@ -8,7 +8,26 @@
   <property name="cooja_jar" value="${cooja}/dist/cooja.jar"/>
   <property name="mspsim_jar" value="${cooja}/apps/mspsim/lib/mspsim.jar"/>
   <property name="cooja_mspsim_jar" value="${cooja}/apps/mspsim/lib/cooja_mspsim.jar"/>
+  <path id="build.classpath">
+    <fileset dir="/home/user/dev/kafka_2.12-1.0.1/libs/">
+      <include name="**/*.jar"/>
+    </fileset>
+  </path>
 
+  <pathconvert property="mf.classpath" pathsep=" ">
+        <path refid="build.classpath"/>
+    <flattenmapper />
+  </pathconvert>
+
+  <pathconvert property="manifest.classpath" pathsep=" ">
+    <path refid="build.classpath"/>
+    <mapper>
+      <chainedmapper>
+         <flattenmapper/>
+         <globmapper from="*.jar" to="*.jar"/>
+      </chainedmapper>
+    </mapper>
+  </pathconvert>
   <target name="init">
     <tstamp/>
   </target>
@@ -27,8 +46,8 @@
         <pathelement location="${cooja_mspsim_jar}"/>
 	      <pathelement location="/home/user/dev/flatbuffers/java/"/>
         <fileset dir="/home/user/dev/kafka_2.12-1.0.1/libs/">
-        <include name="**/*.jar"/>
-      </fileset>
+          <include name="**/*.jar"/>
+        </fileset>
       </classpath>
     </javac>
   </target>
@@ -37,9 +56,11 @@
     <mkdir dir="lib"/>
     <jar destfile="lib/unrealcooja.jar" basedir="build">
       <manifest>
-        <attribute name="Class-Path" value="."/>
+        <attribute name="Class-Path" value="${manifest.classpath}" />
       </manifest>
+
     </jar>
+    <echo message="${manifest.classpath}" />
   </target>
 
 </project>

@@ -7,8 +7,8 @@ import java.util.Collections;
 import java.util.Properties;
 import org.apache.kafka.clients.consumer.*;
 import org.apache.kafka.clients.consumer.Consumer;
-import org.apache.kafka.common.serialization.LongDeserializer;
 import org.apache.kafka.common.serialization.StringDeserializer;
+import org.apache.kafka.common.serialization.ByteArrayDeserializer;
 
 import java.awt.BorderLayout;
 import java.awt.event.ActionEvent;
@@ -345,23 +345,25 @@ public class UnrealCooja extends VisPlugin implements CoojaEventObserver, Observ
 
   /* Forward data: Unreal Engine Mote -> Cooja mote */
   private class IncomingDataHandler extends Thread {
-    private final static String TOPIC = "sensors";
+    private final static String TOPIC = "sensor";
     private final static String BOOTSTRAP_SERVERS = "localhost:9092";
 
     // ByteBuffer bb;
     // Message msg;
-    private Consumer<Long, String> createConsumer() {
+    private Consumer<String, byte[]> createConsumer() {
         final Properties props = new Properties();
+        Thread.currentThread().setContextClassLoader(null);
         props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG,
                                     BOOTSTRAP_SERVERS);
         props.put(ConsumerConfig.GROUP_ID_CONFIG,
-                                    "KafkaExampleConsumer");
+                                    "rdkafka_consumer_example");
         props.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG,
-                LongDeserializer.class.getName());
+                StringDeserializer.class.getName());
         props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG,
-              StringDeserializer.class.getName());
+              ByteArrayDeserializer.class.getName());
+        // props.put(ConsumerConfig.QUEUE_BUFFERING_MAX_MS, 10);
         // Create the consumer using props.
-        final Consumer<Long, String> consumer =
+        final Consumer<String, byte[]> consumer =
                                     new KafkaConsumer<>(props);
         // Subscribe to the topic.
         consumer.subscribe(Collections.singletonList(TOPIC));
@@ -371,10 +373,10 @@ public class UnrealCooja extends VisPlugin implements CoojaEventObserver, Observ
 
     void runConsumer() throws InterruptedException {
 
-    final Consumer<Long, String> consumer = createConsumer();
+    final Consumer<String, byte[]> consumer = createConsumer();
     final int giveUp = 100;   int noRecordsCount = 0;
     while (true) {
-        final ConsumerRecords<Long, String> consumerRecords =
+        final ConsumerRecords<String, byte[]> consumerRecords =
                 consumer.poll(1000);
         if (consumerRecords.count()==0) {
             noRecordsCount++;
@@ -393,86 +395,102 @@ public class UnrealCooja extends VisPlugin implements CoojaEventObserver, Observ
 }
     @Override
     public void run() {
+      System.out.println("Running consumer...");
+      final Consumer<String, byte[]> consumer = createConsumer();
+      try {
       while (!Thread.currentThread().isInterrupted()) {
-        byte[] data = new byte[200];
-        DatagramPacket pkt = new DatagramPacket(data, 200);
-        try {
-          udpSocket.receive(pkt);
-        } catch (IOException ex) {
-          logger.error(ex);
-        }
-        //((SkyMote)sim.getMotes()[data[0]]).getCPU().getIOUnit("ADC12");
-        ByteBuffer bb = ByteBuffer.wrap(data);
-        final Message msg = Message.getRootAsMessage(bb);
-        Runnable toRun = null;
-        switch (msg.type()) {
-          case (MsgType.SPEED_NORM): {
-            sim.setSpeedLimit(1.0);
-            break;
-          }
-          case (MsgType.SPEED_SLOW): {
-            sim.setSpeedLimit(0.1);
-            break;
-          }
-          case (MsgType.PAUSE): {
-            sim.stopSimulation();
-            break;
-          }
-          case (MsgType.RESUME): {
-            sim.startSimulation();
-            break;
-          }
-          case (MsgType.PIR):
-          case (MsgType.FIRE): {
-            // Check we have a mote matching the ID
-            if (sim.getMotes().length < msg.id()) {
-              logger.info("No mote for id: " + msg.id());
-              break;
-            }
-            // Update it in seperate simulation thread.
-            toRun = new Runnable() {
-              @Override
-              public void run() {
-                sim.getMotes()[msg.id()].getInterfaces().getButton().clickButton();
-              }
-            };
-            break;
-          }
-          case (MsgType.LOCATION): {
-            // Check we have a mote matching the ID
-            if (sim.getMotes().length < msg.id()) {
-              logger.info("No mote for id: " + msg.id());
-              break;
-            }
-            // Update it in seperate simulation thread.
-            toRun = new Runnable() {
-              @Override
-              public void run() {
-                // logger.info("Got a location update for " + msg.id());
-                // logger.info("X: " + msg.location().x() +
-                //             " Y: " + msg.location().y() +
-                //             " Z: " + msg.location().z());
-                sim.getMotes()[msg.id()].getInterfaces().getPosition().
-                        setCoordinates(msg.location().x()/100,
-                                       msg.location().y()/100,
-                                       msg.location().z()/100);
-              }
-            };
-            break;
-          }
-          default: {
-            logger.info("Message type not recognised");
-          }
-        }
-        if (toRun != null) sim.invokeSimulationThread(toRun);
+        // System.out.println("Waiting for event...");
 
+          final ConsumerRecords<String, byte[]> events = consumer.poll(100);
+
+
+        // System.out.println("Got event(s)");
+        for (ConsumerRecord <String, byte[]> event : events) {
+          // System.out.println("Got event");
+          // byte[] data = new byte[200];
+          // DatagramPacket pkt = new DatagramPacket(data, 200);
+          // try {
+          //   udpSocket.receive(pkt);
+          // } catch (IOException ex) {
+          //   logger.error(ex);
+          // }
+          //((SkyMote)sim.getMotes()[data[0]]).getCPU().getIOUnit("ADC12");
+          ByteBuffer bb = ByteBuffer.wrap(event.value());
+          final Message msg = Message.getRootAsMessage(bb);
+          Runnable toRun = null;
+          switch (msg.type()) {
+            case (MsgType.SPEED_NORM): {
+              sim.setSpeedLimit(1.0);
+              break;
+            }
+            case (MsgType.SPEED_SLOW): {
+              sim.setSpeedLimit(0.1);
+              break;
+            }
+            case (MsgType.PAUSE): {
+              sim.stopSimulation();
+              break;
+            }
+            case (MsgType.RESUME): {
+              sim.startSimulation();
+              break;
+            }
+            case (MsgType.PIR):
+            case (MsgType.FIRE): {
+              // Check we have a mote matching the ID
+              if (sim.getMotes().length < msg.id()) {
+                logger.info("No mote for id: " + msg.id());
+                break;
+              }
+              // Update it in seperate simulation thread.
+              toRun = new Runnable() {
+                @Override
+                public void run() {
+                  sim.getMotes()[msg.id()].getInterfaces().getButton().clickButton();
+                }
+              };
+              break;
+            }
+            case (MsgType.LOCATION): {
+              // Check we have a mote matching the ID
+              if (sim.getMotes().length < msg.id()) {
+                logger.info("No mote for id: " + msg.id());
+                break;
+              }
+              // Update it in seperate simulation thread.
+              toRun = new Runnable() {
+                @Override
+                public void run() {
+                  // logger.info("Got a location update for " + msg.id());
+                  // logger.info("X: " + msg.location().x() +
+                  //             " Y: " + msg.location().y() +
+                  //             " Z: " + msg.location().z());
+                  sim.getMotes()[msg.id()].getInterfaces().getPosition().
+                          setCoordinates(msg.location().x()/100,
+                                         msg.location().y()/100,
+                                         msg.location().z()/100);
+                }
+              };
+              break;
+            }
+            default: {
+              logger.info("Message type not recognised");
+            }
+          }
+          if (toRun != null) sim.invokeSimulationThread(toRun);
+        }
       }
-      logger.info("Interrupted: Exited UDP SOCKET read loop, closing socket");
-      udpSocket.close();
+    } catch (Exception e) {
+      System.out.println(e);
     }
+      consumer.close();
+      logger.info("Interrupted: Exited UDP SOCKET read loop, closing socket");
+      // udpSocket.close();
+    }
+
     public void interrupt() {
       super.interrupt();
-      udpSocket.close();
+      // udpSocket.close();
       logger.info("Socket Closed");
     }
   }

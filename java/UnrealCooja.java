@@ -7,8 +7,12 @@ import java.util.Collections;
 import java.util.Properties;
 import org.apache.kafka.clients.consumer.*;
 import org.apache.kafka.clients.consumer.Consumer;
+import org.apache.kafka.clients.producer.*;
+import org.apache.kafka.clients.producer.Producer;
 import org.apache.kafka.common.serialization.StringDeserializer;
 import org.apache.kafka.common.serialization.ByteArrayDeserializer;
+import org.apache.kafka.common.serialization.StringSerializer;
+import org.apache.kafka.common.serialization.ByteArraySerializer;
 
 import java.awt.BorderLayout;
 import java.awt.event.ActionEvent;
@@ -64,6 +68,7 @@ import se.sics.mspsim.core.MSP430;
 @ClassDescription("Unreal Cooja") /* Description shown in menu */
 @PluginType(PluginType.SIM_PLUGIN)
 public class UnrealCooja extends VisPlugin implements CoojaEventObserver, Observer{
+  private final static String BOOTSTRAP_SERVERS = "146.169.15.97:9092";
   private static final long serialVersionUID = 4368807123350830772L;
   private static Logger logger = Logger.getLogger(UnrealCooja.class);
   private Thread udpHandler;
@@ -71,6 +76,7 @@ public class UnrealCooja extends VisPlugin implements CoojaEventObserver, Observ
   private int clientPort = 5000;
   private static String clientIPAddrStr = "localhost";
   private InetAddress clientIPAddr;
+  private Producer<String, byte[]> producer;
 
   private int hostPort = 5011;
   private Simulation sim;
@@ -206,9 +212,10 @@ public class UnrealCooja extends VisPlugin implements CoojaEventObserver, Observ
     Message m = Message.getRootAsMessage(builder.dataBuffer());
     byte[] data = builder.sizedByteArray();
     try {
-			sendPacket = new DatagramPacket(data, data.length, clientIPAddr, clientPort);
+      producer.send(new ProducerRecord<String, byte[]>("sensor", "", data));
+			// sendPacket = new DatagramPacket(data, data.length, clientIPAddr, clientPort);
       // logger.info("GOT DUTY");
-			udpSocket.send(sendPacket);
+			// udpSocket.send(sendPacket);
 		} catch (Exception e) {
 			logger.info(e.getMessage());
 		}
@@ -259,6 +266,21 @@ public class UnrealCooja extends VisPlugin implements CoojaEventObserver, Observ
       udpSocket = new DatagramSocket(null);
       udpSocket.bind(new InetSocketAddress(hostPort));
       logger.info("Listening on port " + hostPort);
+      Thread.currentThread().setContextClassLoader(null);
+
+      final Properties props = new Properties();
+      props.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG,
+                                  BOOTSTRAP_SERVERS);
+      // props.put(ProducerConfig.GROUP_ID_CONFIG,
+                                  // "rdkafka_consumer_example");
+      props.put(ProducerConfig.CLIENT_ID_CONFIG, "CoojaProducer");
+      props.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG,
+              StringSerializer.class.getName());
+      props.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG,
+            ByteArraySerializer.class.getName());
+      // props.put(ConsumerConfig.QUEUE_BUFFERING_MAX_MS, 10);
+      // Create the consumer using props.
+      producer = new KafkaProducer<>(props);
     } catch (IOException e){
       logger.info("Couldn't open socket on port " + hostPort);
       logger.error(e.getMessage());
@@ -272,7 +294,7 @@ public class UnrealCooja extends VisPlugin implements CoojaEventObserver, Observ
   /* Adds a new mote to the observed set of motes
    * Needed for use in listener, to access /this/ context */
   public void addMote(Mote mote){
-    moteObservers.add(new MoteObserver(this, mote, clientIPAddr, clientPort));
+    moteObservers.add(new MoteObserver(this, mote, clientIPAddr, clientPort, producer));
     moteTrackers.add(new MoteTracker(mote));
   }
 
@@ -346,7 +368,7 @@ public class UnrealCooja extends VisPlugin implements CoojaEventObserver, Observ
   /* Forward data: Unreal Engine Mote -> Cooja mote */
   private class IncomingDataHandler extends Thread {
     private final static String TOPIC = "sensor";
-    private final static String BOOTSTRAP_SERVERS = "localhost:9092";
+    private final static String BOOTSTRAP_SERVERS = "146.169.15.97:9092";
 
     // ByteBuffer bb;
     // Message msg;
@@ -438,7 +460,10 @@ public class UnrealCooja extends VisPlugin implements CoojaEventObserver, Observ
             case (MsgType.PIR):
             case (MsgType.FIRE): {
               // Check we have a mote matching the ID
-              if (sim.getMotes().length < msg.id()) {
+              System.out.println(sim.getMotes().length);
+              System.out.println(msg.id());
+
+              if (sim.getMotes().length <= msg.id()) {
                 logger.info("No mote for id: " + msg.id());
                 break;
               }
@@ -453,7 +478,7 @@ public class UnrealCooja extends VisPlugin implements CoojaEventObserver, Observ
             }
             case (MsgType.LOCATION): {
               // Check we have a mote matching the ID
-              if (sim.getMotes().length < msg.id()) {
+              if (sim.getMotes().length <= msg.id()) {
                 logger.info("No mote for id: " + msg.id());
                 break;
               }

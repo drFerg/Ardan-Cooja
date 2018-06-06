@@ -11,6 +11,16 @@ import java.util.Observer;
 import UnrealCoojaMsg.Message;
 import UnrealCoojaMsg.MsgType;
 import com.google.flatbuffers.*;
+
+import java.util.Properties;
+import org.apache.kafka.clients.consumer.*;
+import org.apache.kafka.clients.consumer.Consumer;
+import org.apache.kafka.clients.producer.*;
+import org.apache.kafka.clients.producer.Producer;
+import org.apache.kafka.common.serialization.StringDeserializer;
+import org.apache.kafka.common.serialization.ByteArrayDeserializer;
+import org.apache.kafka.common.serialization.StringSerializer;
+import org.apache.kafka.common.serialization.ByteArraySerializer;
 /**
  * Created by fergus on 09/11/15.
  */
@@ -25,14 +35,16 @@ public class LEDEventObserver extends InterfaceEventObserver {
     DatagramPacket sendPacket;
     int[] status;
     int port;
+    Producer<String, byte[]> kafka;
 
     public LEDEventObserver(MoteObserver parent, Mote mote,
                             Observable interfaceToObserve,
-                            InetAddress clientIPAddr, int clientPort) {
+                            InetAddress clientIPAddr, int clientPort, Producer<String, byte[]> p) {
 
         super(parent, mote, interfaceToObserve);
         this.leds = (LED) interfaceToObserve;
         this.port = clientPort;
+        kafka = p;
         logger.info("Created LED observer");
         try {
             clientSocket = new DatagramSocket();
@@ -62,6 +74,7 @@ public class LEDEventObserver extends InterfaceEventObserver {
         try {
             sendPacket = new DatagramPacket(data, data.length, ipAddress, port);
             clientSocket.send(sendPacket);
+            kafka.send(new ProducerRecord<String, byte[]>("actuator", "", data));
         } catch (Exception e) {
             logger.info(e.getMessage());
         }

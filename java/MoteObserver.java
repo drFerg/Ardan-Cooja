@@ -1,6 +1,10 @@
 import java.util.ArrayList;
 import java.net.InetAddress;
+import org.apache.kafka.clients.producer.*;
+import org.apache.kafka.clients.producer.Producer;
 
+import org.apache.kafka.common.serialization.StringSerializer;
+import org.apache.kafka.common.serialization.ByteArraySerializer;
 import org.apache.log4j.Logger;
 import org.contikios.cooja.interfaces.LED;
 
@@ -24,10 +28,12 @@ public class MoteObserver {
     private static Logger logger = Logger.getLogger(MoteObserver.class);
     InetAddress ipAddr;
     int port;
+    Producer<String, byte[]> kafka;
 
-    public MoteObserver(CoojaEventObserver parent, Mote moteToObserve, InetAddress clientIPAddr, int clientPort) {
+    public MoteObserver(CoojaEventObserver parent, Mote moteToObserve, InetAddress clientIPAddr, int clientPort, Producer<String, byte[]> p) {
       this.parent = parent;
       this.mote = moteToObserve;
+      kafka = p;
       ipAddr = clientIPAddr;
       port = clientPort;
       observers = new ArrayList<InterfaceEventObserver>();
@@ -43,7 +49,7 @@ public class MoteObserver {
 //          if (mi instanceof Radio)
 //            observers.add(new RadioEventObserver(this, mote, mi));
             if (mi instanceof LED)
-              observers.add(new LEDEventObserver(this, mote, mi, ipAddr, port));
+              observers.add(new LEDEventObserver(this, mote, mi, ipAddr, port, kafka));
           // else
           //   observers.add(new InterfaceEventObserver(this, mote, mi));
         }

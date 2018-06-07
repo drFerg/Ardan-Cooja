@@ -238,6 +238,23 @@ public class UnrealCooja extends VisPlugin implements CoojaEventObserver, Observ
       logger.error("UnrealCooja>> " + e.getMessage());
 
     }
+    Thread.currentThread().setContextClassLoader(null);
+
+    final Properties props = new Properties();
+    props.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG,
+                                BOOTSTRAP_SERVERS);
+    // props.put(ProducerConfig.GROUP_ID_CONFIG,
+                                // "rdkafka_consumer_example");
+    props.put(ProducerConfig.CLIENT_ID_CONFIG, "CoojaProducer");
+    props.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG,
+            StringSerializer.class.getName());
+    props.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG,
+          ByteArraySerializer.class.getName());
+    // props.put(ConsumerConfig.QUEUE_BUFFERING_MAX_MS, 10);
+    // Create the consumer using props.
+    producer = new KafkaProducer<>(props);
+
+
     initialised = true;
     networkObserver = new RadioMediumEventObserver(this, radioMedium, clientIPAddr, clientPort);
     /* Create observers for each mote */
@@ -266,21 +283,7 @@ public class UnrealCooja extends VisPlugin implements CoojaEventObserver, Observ
       udpSocket = new DatagramSocket(null);
       udpSocket.bind(new InetSocketAddress(hostPort));
       logger.info("Listening on port " + hostPort);
-      Thread.currentThread().setContextClassLoader(null);
 
-      final Properties props = new Properties();
-      props.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG,
-                                  BOOTSTRAP_SERVERS);
-      // props.put(ProducerConfig.GROUP_ID_CONFIG,
-                                  // "rdkafka_consumer_example");
-      props.put(ProducerConfig.CLIENT_ID_CONFIG, "CoojaProducer");
-      props.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG,
-              StringSerializer.class.getName());
-      props.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG,
-            ByteArraySerializer.class.getName());
-      // props.put(ConsumerConfig.QUEUE_BUFFERING_MAX_MS, 10);
-      // Create the consumer using props.
-      producer = new KafkaProducer<>(props);
     } catch (IOException e){
       logger.info("Couldn't open socket on port " + hostPort);
       logger.error(e.getMessage());
@@ -423,7 +426,7 @@ public class UnrealCooja extends VisPlugin implements CoojaEventObserver, Observ
       while (!Thread.currentThread().isInterrupted()) {
         // System.out.println("Waiting for event...");
 
-          final ConsumerRecords<String, byte[]> events = consumer.poll(100);
+          final ConsumerRecords<String, byte[]> events = consumer.poll(10);
 
 
         // System.out.println("Got event(s)");

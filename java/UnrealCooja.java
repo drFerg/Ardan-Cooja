@@ -250,6 +250,8 @@ public class UnrealCooja extends VisPlugin implements CoojaEventObserver, Observ
             StringSerializer.class.getName());
     props.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG,
           ByteArraySerializer.class.getName());
+    props.put("batch.num.messages", 1);
+    props.put("linger.ms", 0);
     // props.put(ConsumerConfig.QUEUE_BUFFERING_MAX_MS, 10);
     // Create the consumer using props.
     producer = new KafkaProducer<>(props);
@@ -402,7 +404,7 @@ public class UnrealCooja extends VisPlugin implements CoojaEventObserver, Observ
     final int giveUp = 100;   int noRecordsCount = 0;
     while (true) {
         final ConsumerRecords<String, byte[]> consumerRecords =
-                consumer.poll(1000);
+                consumer.poll(10);
         if (consumerRecords.count()==0) {
             noRecordsCount++;
             if (noRecordsCount > giveUp) break;

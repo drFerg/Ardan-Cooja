@@ -61,7 +61,7 @@ public class LEDEventObserver extends InterfaceEventObserver {
         status[1] = (leds.isGreenOn()? 1: 0);
         status[2] = (leds.isYellowOn()? 1: 0);
 
-        FlatBufferBuilder builder = new FlatBufferBuilder(1024);
+        FlatBufferBuilder builder = new FlatBufferBuilder(100);
         int ledVec = Message.createLedVector(builder, status);
         Message.startMessage(builder);
     		Message.addType(builder, MsgType.LED);
@@ -69,13 +69,13 @@ public class LEDEventObserver extends InterfaceEventObserver {
     		Message.addLed(builder, ledVec);
     		int msg = Message.endMessage(builder);
         Message.finishMessageBuffer(builder, msg);
-        byte[] data = builder.sizedByteArray();
+
 
         try {
             // sendPacket = new DatagramPacket(data, data.length, ipAddress, port);
             // clientSocket.send(sendPacket);
+            kafka.send(new ProducerRecord<String, byte[]>("actuator", "", builder.sizedByteArray()));
             logger.info("Sending led info to kafka stream");
-            kafka.send(new ProducerRecord<String, byte[]>("actuator", "", data));
         } catch (Exception e) {
             logger.info("Exception:" + e.getMessage());
         }

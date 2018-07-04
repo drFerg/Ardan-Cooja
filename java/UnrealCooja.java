@@ -428,7 +428,7 @@ public class UnrealCooja extends VisPlugin implements CoojaEventObserver, Observ
       while (!Thread.currentThread().isInterrupted()) {
         // System.out.println("Waiting for event...");
 
-          final ConsumerRecords<String, byte[]> events = consumer.poll(10);
+        final ConsumerRecords<String, byte[]> events = consumer.poll(10);
 
 
         // System.out.println("Got event(s)");
@@ -460,6 +460,9 @@ public class UnrealCooja extends VisPlugin implements CoojaEventObserver, Observ
             }
             case (MsgType.RESUME): {
               sim.startSimulation();
+              break;
+            }
+            case (MsgType.RADIO_DUTY): {
               break;
             }
             case (MsgType.PIR):

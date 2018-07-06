@@ -68,7 +68,9 @@ import se.sics.mspsim.core.MSP430;
 @ClassDescription("Unreal Cooja") /* Description shown in menu */
 @PluginType(PluginType.SIM_PLUGIN)
 public class UnrealCooja extends VisPlugin implements CoojaEventObserver, Observer{
-  private final static String BOOTSTRAP_SERVERS = "146.169.15.97:9092";
+  // private final static String BOOTSTRAP_SERVERS = "146.169.15.97:9092";
+  private final static String BOOTSTRAP_SERVERS = "localhost:9092";
+
   private static final long serialVersionUID = 4368807123350830772L;
   private static Logger logger = Logger.getLogger(UnrealCooja.class);
   private Thread udpHandler;
@@ -250,6 +252,8 @@ public class UnrealCooja extends VisPlugin implements CoojaEventObserver, Observ
             StringSerializer.class.getName());
     props.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG,
           ByteArraySerializer.class.getName());
+    props.put("acks", "0");
+    props.put("retries", 0);
     props.put("batch.num.messages", 1);
     props.put("linger.ms", 0);
     // props.put(ConsumerConfig.QUEUE_BUFFERING_MAX_MS, 10);
@@ -373,7 +377,8 @@ public class UnrealCooja extends VisPlugin implements CoojaEventObserver, Observ
   /* Forward data: Unreal Engine Mote -> Cooja mote */
   private class IncomingDataHandler extends Thread {
     private final static String TOPIC = "sensor";
-    private final static String BOOTSTRAP_SERVERS = "146.169.15.97:9092";
+    // private final static String BOOTSTRAP_SERVERS = "146.169.15.97:9092";
+    private final static String BOOTSTRAP_SERVERS = "localhost:9092";
 
     // ByteBuffer bb;
     // Message msg;
@@ -388,6 +393,7 @@ public class UnrealCooja extends VisPlugin implements CoojaEventObserver, Observ
                 StringDeserializer.class.getName());
         props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG,
               ByteArrayDeserializer.class.getName());
+        props.put(ConsumerConfig.FETCH_MAX_WAIT_MS_CONFIG, 0);
         // props.put(ConsumerConfig.QUEUE_BUFFERING_MAX_MS, 10);
         // Create the consumer using props.
         final Consumer<String, byte[]> consumer =
@@ -398,28 +404,28 @@ public class UnrealCooja extends VisPlugin implements CoojaEventObserver, Observ
 
     }
 
-    void runConsumer() throws InterruptedException {
-
-    final Consumer<String, byte[]> consumer = createConsumer();
-    final int giveUp = 100;   int noRecordsCount = 0;
-    while (true) {
-        final ConsumerRecords<String, byte[]> consumerRecords =
-                consumer.poll(10);
-        if (consumerRecords.count()==0) {
-            noRecordsCount++;
-            if (noRecordsCount > giveUp) break;
-            else continue;
-        }
-        // consumerRecords.forEach(record -> {
-        //     System.out.printf("Consumer Record:(%d, %s, %d, %d)\n",
-        //             record.key(), record.value(),
-        //             record.partition(), record.offset());
-        // });
-        consumer.commitAsync();
-    }
-    consumer.close();
-    System.out.println("DONE");
-}
+//     void runConsumer() throws InterruptedException {
+//
+//     final Consumer<String, byte[]> consumer = createConsumer();
+//     final int giveUp = 100;   int noRecordsCount = 0;
+//     while (true) {
+//         final ConsumerRecords<String, byte[]> consumerRecords =
+//                 consumer.poll(10);
+//         if (consumerRecords.count()==0) {
+//             noRecordsCount++;
+//             if (noRecordsCount > giveUp) break;
+//             else continue;
+//         }
+//         // consumerRecords.forEach(record -> {
+//         //     System.out.printf("Consumer Record:(%d, %s, %d, %d)\n",
+//         //             record.key(), record.value(),
+//         //             record.partition(), record.offset());
+//         // });
+//         consumer.commitAsync();
+//     }
+//     consumer.close();
+//     System.out.println("DONE");
+// }
     @Override
     public void run() {
       System.out.println("Running consumer...");
@@ -428,7 +434,7 @@ public class UnrealCooja extends VisPlugin implements CoojaEventObserver, Observ
       while (!Thread.currentThread().isInterrupted()) {
         // System.out.println("Waiting for event...");
 
-        final ConsumerRecords<String, byte[]> events = consumer.poll(10);
+        final ConsumerRecords<String, byte[]> events = consumer.poll(100);
 
 
         // System.out.println("Got event(s)");
@@ -468,8 +474,8 @@ public class UnrealCooja extends VisPlugin implements CoojaEventObserver, Observ
             case (MsgType.PIR):
             case (MsgType.FIRE): {
               // Check we have a mote matching the ID
-              System.out.println(sim.getMotes().length);
-              System.out.println(msg.id());
+              // System.out.println(sim.getMotes().length);
+              // System.out.println(msg.id());
 
               if (sim.getMotes().length <= msg.id()) {
                 logger.info("No mote for id: " + msg.id());

@@ -61,7 +61,7 @@ public class LEDEventObserver extends InterfaceEventObserver {
         status[1] = (leds.isGreenOn()? 1: 0);
         status[2] = (leds.isYellowOn()? 1: 0);
 
-        FlatBufferBuilder builder = new FlatBufferBuilder(100);
+        FlatBufferBuilder builder = new FlatBufferBuilder(50);
         int ledVec = Message.createLedVector(builder, status);
         Message.startMessage(builder);
     		Message.addType(builder, MsgType.LED);

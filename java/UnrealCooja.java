@@ -252,9 +252,9 @@ public class UnrealCooja extends VisPlugin implements CoojaEventObserver, Observ
             StringSerializer.class.getName());
     props.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG,
           ByteArraySerializer.class.getName());
-    props.put("acks", "0");
-    props.put("retries", 0);
-    props.put("batch.num.messages", 1);
+    //props.put("acks", "0");
+    //props.put("retries", 0);
+    //props.put("batch.num.messages", 1);
     props.put("linger.ms", 0);
     // props.put(ConsumerConfig.QUEUE_BUFFERING_MAX_MS, 10);
     // Create the consumer using props.
@@ -303,7 +303,7 @@ public class UnrealCooja extends VisPlugin implements CoojaEventObserver, Observ
   /* Adds a new mote to the observed set of motes
    * Needed for use in listener, to access /this/ context */
   public void addMote(Mote mote){
-    moteObservers.add(new MoteObserver(this, mote, clientIPAddr, clientPort, producer));
+    moteObservers.add(new MoteObserver(sim, this, mote, clientIPAddr, clientPort, producer));
     moteTrackers.add(new MoteTracker(mote));
   }
 
@@ -394,6 +394,8 @@ public class UnrealCooja extends VisPlugin implements CoojaEventObserver, Observ
         props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG,
               ByteArrayDeserializer.class.getName());
         props.put(ConsumerConfig.FETCH_MAX_WAIT_MS_CONFIG, 0);
+        props.put("socket.blocking.max.ms", 0);
+
         // props.put(ConsumerConfig.QUEUE_BUFFERING_MAX_MS, 10);
         // Create the consumer using props.
         final Consumer<String, byte[]> consumer =
@@ -434,7 +436,7 @@ public class UnrealCooja extends VisPlugin implements CoojaEventObserver, Observ
       while (!Thread.currentThread().isInterrupted()) {
         // System.out.println("Waiting for event...");
 
-        final ConsumerRecords<String, byte[]> events = consumer.poll(100);
+        final ConsumerRecords<String, byte[]> events = consumer.poll(1);
 
 
         // System.out.println("Got event(s)");
@@ -517,6 +519,7 @@ public class UnrealCooja extends VisPlugin implements CoojaEventObserver, Observ
             }
           }
           if (toRun != null) sim.invokeSimulationThread(toRun);
+          logger.info("RECV: " + sim.getSimulationTime());
         }
       }
     } catch (Exception e) {

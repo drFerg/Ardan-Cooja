@@ -2,6 +2,7 @@ import java.util.ArrayList;
 import java.net.InetAddress;
 import org.apache.kafka.clients.producer.*;
 import org.apache.kafka.clients.producer.Producer;
+import org.contikios.cooja.Simulation;
 
 import org.apache.kafka.common.serialization.StringSerializer;
 import org.apache.kafka.common.serialization.ByteArraySerializer;
@@ -29,11 +30,13 @@ public class MoteObserver {
     InetAddress ipAddr;
     int port;
     Producer<String, byte[]> kafka;
+    Simulation sim;
 
-    public MoteObserver(CoojaEventObserver parent, Mote moteToObserve, InetAddress clientIPAddr, int clientPort, Producer<String, byte[]> p) {
+    public MoteObserver(Simulation sim, CoojaEventObserver parent, Mote moteToObserve, InetAddress clientIPAddr, int clientPort, Producer<String, byte[]> p) {
       this.parent = parent;
       this.mote = moteToObserve;
       kafka = p;
+      this.sim = sim;
       ipAddr = clientIPAddr;
       port = clientPort;
       observers = new ArrayList<InterfaceEventObserver>();
@@ -49,7 +52,7 @@ public class MoteObserver {
 //          if (mi instanceof Radio)
 //            observers.add(new RadioEventObserver(this, mote, mi));
             if (mi instanceof LED)
-              observers.add(new LEDEventObserver(this, mote, mi, ipAddr, port, kafka));
+              observers.add(new LEDEventObserver(sim, this, mote, mi, ipAddr, port, kafka));
           // else
           //   observers.add(new InterfaceEventObserver(this, mote, mi));
         }

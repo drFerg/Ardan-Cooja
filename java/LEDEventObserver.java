@@ -1,5 +1,6 @@
 import org.contikios.cooja.Mote;
 import org.apache.log4j.Logger;
+import org.contikios.cooja.Simulation;
 import org.contikios.cooja.interfaces.LED;
 
 import java.net.DatagramPacket;
@@ -36,14 +37,15 @@ public class LEDEventObserver extends InterfaceEventObserver {
     int[] status;
     int port;
     Producer<String, byte[]> kafka;
-
-    public LEDEventObserver(MoteObserver parent, Mote mote,
+    Simulation sim;
+    public LEDEventObserver(Simulation sim, MoteObserver parent, Mote mote,
                             Observable interfaceToObserve,
                             InetAddress clientIPAddr, int clientPort, Producer<String, byte[]> p) {
 
         super(parent, mote, interfaceToObserve);
         this.leds = (LED) interfaceToObserve;
         this.port = clientPort;
+        this.sim = sim;
         kafka = p;
         logger.info("Created LED observer");
         try {
@@ -74,8 +76,8 @@ public class LEDEventObserver extends InterfaceEventObserver {
         try {
             // sendPacket = new DatagramPacket(data, data.length, ipAddress, port);
             // clientSocket.send(sendPacket);
-            kafka.send(new ProducerRecord<String, byte[]>("actuator", "", builder.sizedByteArray()));
-            logger.info("Sending led info to kafka stream");
+            kafka.send(new ProducerRecord<String, byte[]>("actuator"+mote.getID(), "", builder.sizedByteArray()));
+            logger.info("SEND: " + sim.getSimulationTime());
         } catch (Exception e) {
             logger.info("Exception:" + e.getMessage());
         }

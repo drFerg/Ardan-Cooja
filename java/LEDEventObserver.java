@@ -76,7 +76,7 @@ public class LEDEventObserver extends InterfaceEventObserver {
         try {
             // sendPacket = new DatagramPacket(data, data.length, ipAddress, port);
             // clientSocket.send(sendPacket);
-            kafka.send(new ProducerRecord<String, byte[]>("actuator"+mote.getID(), "", builder.sizedByteArray()));
+            kafka.send(new ProducerRecord<String, byte[]>("actuator", "" + mote.getID(), builder.sizedByteArray()));
             logger.info("SEND: " + sim.getSimulationTime());
         } catch (Exception e) {
             logger.info("Exception:" + e.getMessage());

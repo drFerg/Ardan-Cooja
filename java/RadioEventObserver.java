@@ -9,12 +9,12 @@ import org.contikios.cooja.Mote;
 import org.contikios.cooja.interfaces.Radio;
 import org.contikios.cooja.MoteInterface;
 /* Radio Event Observer
- * 
- * A specialised event observer for a mote's radio interface events 
+ *
+ * A specialised event observer for a mote's radio interface events
  */
 public class RadioEventObserver extends InterfaceEventObserver {
 
-	public RadioEventObserver(MoteObserver parent, Mote mote, 
+	public RadioEventObserver(MoteObserver parent, Mote mote,
                             Observable interfaceToObserve){
 		super(parent, mote, interfaceToObserve);
 		logger.info("Created radio observer");

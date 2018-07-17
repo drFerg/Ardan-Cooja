@@ -262,7 +262,7 @@ public class UnrealCooja extends VisPlugin implements CoojaEventObserver, Observ
 
 
     initialised = true;
-    networkObserver = new RadioMediumEventObserver(this, radioMedium, clientIPAddr, clientPort);
+    networkObserver = new RadioMediumEventObserver(this, radioMedium, clientIPAddr, clientPort, producer);
     /* Create observers for each mote */
     moteObservers = new ArrayList<MoteObserver>();
     moteTrackers = new ArrayList<MoteTracker>();
@@ -432,6 +432,7 @@ public class UnrealCooja extends VisPlugin implements CoojaEventObserver, Observ
     public void run() {
       System.out.println("Running consumer...");
       final Consumer<String, byte[]> consumer = createConsumer();
+      Runnable toRun = null;
       try {
       while (!Thread.currentThread().isInterrupted()) {
         // System.out.println("Waiting for event...");
@@ -441,6 +442,7 @@ public class UnrealCooja extends VisPlugin implements CoojaEventObserver, Observ
 
         // System.out.println("Got event(s)");
         for (ConsumerRecord <String, byte[]> event : events) {
+          System.out.println(event.key() + " >TIMESTAMP: " + event.timestamp());
           // System.out.println("Got event");
           // byte[] data = new byte[200];
           // DatagramPacket pkt = new DatagramPacket(data, 200);
@@ -450,9 +452,8 @@ public class UnrealCooja extends VisPlugin implements CoojaEventObserver, Observ
           //   logger.error(ex);
           // }
           //((SkyMote)sim.getMotes()[data[0]]).getCPU().getIOUnit("ADC12");
-          ByteBuffer bb = ByteBuffer.wrap(event.value());
-          final Message msg = Message.getRootAsMessage(bb);
-          Runnable toRun = null;
+          final Message msg = Message.getRootAsMessage(ByteBuffer.wrap(event.value()));
+          toRun = null;
           switch (msg.type()) {
             case (MsgType.SPEED_NORM): {
               sim.setSpeedLimit(1.0);

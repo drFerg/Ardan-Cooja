@@ -15,6 +15,13 @@ import org.contikios.cooja.RadioConnection;
 import org.contikios.cooja.RadioMedium;
 import org.contikios.cooja.interfaces.Radio;
 
+import org.apache.kafka.clients.producer.*;
+import org.apache.kafka.clients.producer.Producer;
+import org.apache.kafka.common.serialization.StringDeserializer;
+import org.apache.kafka.common.serialization.ByteArrayDeserializer;
+import org.apache.kafka.common.serialization.StringSerializer;
+import org.apache.kafka.common.serialization.ByteArraySerializer;
+
 /* Radio Event Observer
  *
  * A specialised event observer for a mote's radio interface events
@@ -29,11 +36,12 @@ public class RadioMediumEventObserver implements Observer {
 	InetAddress ipAddress;
 	int port;
 	DatagramPacket sendPacket;
-
-	public RadioMediumEventObserver(CoojaEventObserver parent, RadioMedium network, InetAddress clientIPAddr, int clientPort){
+	Producer<String, byte[]> kafka;
+	public RadioMediumEventObserver(CoojaEventObserver parent, RadioMedium network, InetAddress clientIPAddr, int clientPort, Producer<String, byte[]> prod){
 		this.network = network;
 		this.parent = parent;
 		this.port = clientPort;
+		kafka = prod;
 		try {
 			clientSocket = new DatagramSocket();
 			ipAddress = clientIPAddr;
@@ -67,6 +75,7 @@ public class RadioMediumEventObserver implements Observer {
     byte[] data = builder.sizedByteArray();
 
 		try {
+			kafka.send(new ProducerRecord<String, byte[]>("sensor", "radio", data));
 			sendPacket = new DatagramPacket(data, data.length, ipAddress, port);
 			clientSocket.send(sendPacket);
 		} catch (Exception e) {

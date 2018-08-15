@@ -27,11 +27,9 @@ public class InterfaceEventObserver implements Observer {
     protected Producer<String, byte[]> kafka;
     protected static Logger logger = Logger.getLogger(InterfaceEventObserver.class);
 
-    public InterfaceEventObserver(Simulation sim, MoteObserver parent, Mote mote,
+    public InterfaceEventObserver(Mote mote,
         Observable interfaceToObserve, Producer<String, byte[]> kafka) {
       interfaceObservable = interfaceToObserve;
-      this.sim = sim;
-      this.parent = parent;
       this.mote = mote;
       this.kafka = kafka;
       interfaceObservable.addObserver(this);

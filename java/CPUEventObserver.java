@@ -20,16 +20,16 @@ public class CPUEventObserver extends InterfaceEventObserver implements Operatin
   private MoteObserver parent;
   private static Logger logger = Logger.getLogger(InterfaceEventObserver.class);
 
-  public CPUEventObserver(Simulation sim, MoteObserver parent, Mote mote,
+  public CPUEventObserver(Mote mote,
 														Producer<String, byte[]> kafkaProducer){
-    super(sim, parent, mote, new Observable(), kafkaProducer);
+    super(mote, new Observable(), kafkaProducer);
     logger.info("Created CPU observer");
     this.mote = (MspMote)mote;
     this.mote.getCPU().addOperatingModeListener(this);
   }
 
   public void modeChanged(Chip source, int mode) {
-    parent.cpuEventHandler(mote.getCPU(), mote);
+    // parent.cpuEventHandler(mote.getCPU(), mote);
     // cpu.getMode(), MSP430Constants.MODE_NAMES[cpu.getMode()]
   }
 

@@ -8,6 +8,9 @@ import org.apache.kafka.common.serialization.StringSerializer;
 import org.apache.kafka.common.serialization.ByteArraySerializer;
 import org.apache.log4j.Logger;
 import org.contikios.cooja.interfaces.LED;
+import org.contikios.cooja.interfaces.Beeper;
+
+import java.util.Observer;
 
 import org.contikios.cooja.ClassDescription;
 import org.contikios.cooja.Mote;
@@ -22,55 +25,43 @@ import se.sics.mspsim.core.MSP430;
 @ClassDescription("Mote Observer")
 public class MoteObserver {
     protected Mote mote = null;
-    protected CoojaEventObserver parent = null;
     protected CPUEventObserver cpu;
     protected ArrayList<InterfaceEventObserver> observers;
     protected LED leds;
     private static Logger logger = Logger.getLogger(MoteObserver.class);
-    InetAddress ipAddr;
-    int port;
     Producer<String, byte[]> kafka;
     Simulation sim;
 
-    public MoteObserver(Simulation sim, CoojaEventObserver parent, Mote moteToObserve, InetAddress clientIPAddr, int clientPort, Producer<String, byte[]> p) {
-      this.parent = parent;
+    public MoteObserver(Simulation sim, Mote moteToObserve, Producer<String, byte[]> producer) {
       this.mote = moteToObserve;
-      kafka = p;
+      kafka = producer;
       this.sim = sim;
-      ipAddr = clientIPAddr;
-      port = clientPort;
       observers = new ArrayList<InterfaceEventObserver>();
-      observeAll();
+      observeMoteInterfaces();
     }
 
-    public void observeAll(){
+    public void observeMoteInterfaces(){
       logger.info("Adding interfaces for mote: " + mote.getID());
       //cpu = new CPUEventObserver(this, mote);
-
-      for (MoteInterface moteInterface : mote.getInterfaces().getInterfaces()) {
-        if (moteInterface != null) {
-//          if (moteInterface instanceof Radio)
-//            observers.add(new RadioEventObserver(this, mote, moteInterface));
-            if (moteInterface instanceof LED)
-              observers.add(new LEDEventObserver(sim, this, mote, moteInterface, kafka));
-          // else
-          //   observers.add(new InterfaceEventObserver(this, mote, mi));
-        }
+      //   observers.add(new InterfaceEventObserver(this, mote, mi));
+        observers.add(new RadioEventObserver(mote, mote.getInterfaces().getRadio(), kafka));
+        observers.add(new LEDEventObserver(mote, mote.getInterfaces().getLED(), kafka));
+        observers.add(new BeeperEventObserver(mote, mote.getInterfaces().getBeeper(), kafka));
       }
     }
 
     public void deleteAllObservers(){
       logger.info("Removing interfaces for mote: " + mote.getID());
-      for (InterfaceEventObserver intObserver : observers) {
-        intObserver.getInterfaceObservable().deleteObserver(intObserver);
+      for (InterfaceEventObserver moteObserver : observers) {
+        moteObserver.getInterfaceObservable().deleteObserver(moteObserver);
       }
       //cpu.removeListener();
     }
-    public void radioEventHandler(Radio radio, Mote mote){
-      parent.radioEventHandler(radio, mote);
-    }
-
-    public void cpuEventHandler(MSP430 cpu, Mote mote){
-      parent.cpuEventHandler(cpu, mote);
-    }
+    // public void radioEventHandler(Radio radio, Mote mote){
+    //   parent.radioEventHandler(radio, mote);
+    // }
+    //
+    // public void cpuEventHandler(MSP430 cpu, Mote mote){
+    //   parent.cpuEventHandler(cpu, mote);
+    // }
   }

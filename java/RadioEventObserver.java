@@ -21,10 +21,10 @@ import org.contikios.cooja.MoteInterface;
  */
 public class RadioEventObserver extends InterfaceEventObserver {
 
-	public RadioEventObserver(Simulation sim, MoteObserver parent, Mote mote,
+	public RadioEventObserver(Mote mote,
 														Observable radioInterface,
 														Producer<String, byte[]> kafkaProducer){
-		super(sim, parent, mote, radioInterface, kafkaProducer);
+		super(mote, radioInterface, kafkaProducer);
 	}
 
   @Override

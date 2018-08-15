@@ -1,6 +1,7 @@
 import UnrealCoojaMsg.Message;
 import UnrealCoojaMsg.MsgType;
 import UnrealCoojaMsg.RadioDuty;
+import UnrealCoojaMsg.SimState;
 import com.google.flatbuffers.*;
 import java.util.Collections;
 
@@ -67,14 +68,13 @@ import se.sics.mspsim.core.MSP430;
  */
 @ClassDescription("Unreal Cooja") /* Description shown in menu */
 @PluginType(PluginType.SIM_PLUGIN)
-public class UnrealCooja extends VisPlugin implements CoojaEventObserver, Observer{
+public class UnrealCooja extends VisPlugin implements Observer{
   // private final static String BOOTSTRAP_SERVERS = "146.169.15.97:9092";
   private final static String BOOTSTRAP_SERVERS = "localhost:9092";
 
   private static final long serialVersionUID = 4368807123350830772L;
   private static Logger logger = Logger.getLogger(UnrealCooja.class);
-  private Thread udpHandler;
-  private DatagramSocket udpSocket;
+  private Thread kafkaConsumer;
   private int clientPort = 5000;
   private static String clientIPAddrStr = "localhost";
   private InetAddress clientIPAddr;
@@ -215,9 +215,6 @@ public class UnrealCooja extends VisPlugin implements CoojaEventObserver, Observ
     byte[] data = builder.sizedByteArray();
     try {
       producer.send(new ProducerRecord<String, byte[]>("radio", "", data));
-			// sendPacket = new DatagramPacket(data, data.length, clientIPAddr, clientPort);
-      // logger.info("GOT DUTY");
-			// udpSocket.send(sendPacket);
 		} catch (Exception e) {
 			logger.info(e.getMessage());
 		}
@@ -228,7 +225,7 @@ public class UnrealCooja extends VisPlugin implements CoojaEventObserver, Observ
     /* Check for class loaders, if not the same class casting won't work, reload to fix */
     if ((sim.getMotes()[0].getClass().getClassLoader() != this.getClass().getClassLoader()) &&
         (sim.getMotes()[0].getClass().getClassLoader() != gui.getClass().getClassLoader())) {
-          logger.info("Different class loaders - Reload to fix");
+          logger.info("Different class loaders - Reload Cooja to fix");
           return;
     }
 
@@ -262,7 +259,7 @@ public class UnrealCooja extends VisPlugin implements CoojaEventObserver, Observ
 
 
     initialised = true;
-    networkObserver = new RadioMediumEventObserver(this, radioMedium, clientIPAddr, clientPort, producer);
+    networkObserver = new RadioMediumEventObserver(radioMedium, producer);
     /* Create observers for each mote */
     moteObservers = new ArrayList<MoteObserver>();
     moteTrackers = new ArrayList<MoteTracker>();
@@ -284,18 +281,8 @@ public class UnrealCooja extends VisPlugin implements CoojaEventObserver, Observ
     });
 
 
-
-    try {
-      udpSocket = new DatagramSocket(null);
-      udpSocket.bind(new InetSocketAddress(hostPort));
-      logger.info("Listening on port " + hostPort);
-
-    } catch (IOException e){
-      logger.info("Couldn't open socket on port " + hostPort);
-      logger.error(e.getMessage());
-    }
-    udpHandler = new IncomingDataHandler();
-    udpHandler.start();
+    kafkaConsumer = new CoojaKafkaConsumer();
+    kafkaConsumer.start();
 
     addSecondObserver(this);
   }
@@ -303,18 +290,18 @@ public class UnrealCooja extends VisPlugin implements CoojaEventObserver, Observ
   /* Adds a new mote to the observed set of motes
    * Needed for use in listener, to access /this/ context */
   public void addMote(Mote mote){
-    moteObservers.add(new MoteObserver(sim, this, mote, clientIPAddr, clientPort, producer));
+    moteObservers.add(new MoteObserver(sim, mote, producer));
     moteTrackers.add(new MoteTracker(mote));
   }
 
   public void closePlugin() {
     /* Clean up plugin resources */
-    logger.info("Closing Network Socket...");
-    udpHandler.interrupt();
+    logger.info("Stopping KafkaConsumer...");
+    kafkaConsumer.interrupt();
     try {
-      udpHandler.join();
+      kafkaConsumer.join();
     } catch (InterruptedException e) {
-      logger.info("Interrupted whilst waiting for udpHandler");
+      logger.info("Interrupted whilst waiting for kafkaConsumer");
       logger.error(e.getMessage());
     }
     logger.info("Tidying up UnrealCooja listeners/observers");
@@ -331,57 +318,78 @@ public class UnrealCooja extends VisPlugin implements CoojaEventObserver, Observ
     logger.info("UnrealCooja cleaned up");
   }
 
-  public void radioEventHandler(Radio radio, Mote mote) {
-//    hwdb.insertLater(String.format("insert into radio values ('%d', '%d',\"%s\", '%d', '%1.1f', '%1.1f')\n",
-//      sim.getSimulationTime(), mote.getID(), radio.getLastEvent(), (radio.isRadioOn() ? 1 : 0),
-//      radio.getCurrentSignalStrength(), radio.getCurrentOutputPower()));
-  }
-
   public void cpuEventHandler(MSP430 cpu, Mote mote){
 //    hwdb.insertLater(String.format("insert into cpu values ('%d', '%d', '%d', \"%s\")\n", sim.getSimulationTime(), mote.getID(),
 //                 cpu.getMode(), MSP430Constants.MODE_NAMES[cpu.getMode()]));
   }
 
-  public void radioMediumEventHandler(RadioConnection conn) {
-    if (conn == null) return;
-    /* Retrieve connection data for transmission, including packet sequence number (made positive) */
-    /* 6198FCCD AB000300 04920003 00040048 656C6C6F  a..............HelloDD10 < Unicast to 3 from 4
-       4198F4CD ABFFFF00 06810006 0048656C 6C6F006E  A............Hello.nB0   < Broadcast from 6
-                  ^^^^^^ ^^< address(to|from) */
-
-//    byte[] pkt = conn.getSource().getLastPacketTransmitted().getPacketData();
-//    hwdb.insertLater(String.format("insert into transmissions values ('%d', '%d', '%d', '%d', '%d', '%d', '%d', '%s' )\n",
-//                                    pkt[2] & (0xff), /* Packet sequence number, made unsigned */
-//                                    conn.getStartTime(), sim.getSimulationTime(),
-//                                    conn.getSource().getMote().getID(), conn.getDestinations().length,
-//                                    conn.getInterfered().length, pkt.length,
-//                                    pkt[0] == 0x02 ? "false" : (pkt[5] == -1 && pkt[6] == -1 ? "true":"false")));
-//                                    /* Check if packet is reply (<5 bytes), then check if it's a broadcast packet */
-//    for (Radio dst: conn.getAllDestinations()) {
-//      hwdb.insertLater(String.format("insert into connections values ('%d', '%d', '%d', '%d', '%d', '%s', '%d')\n",
-//                                      conn.getSource().getLastPacketTransmitted().getPacketData()[2] & (0xff), conn.getStartTime(), sim.getSimulationTime(),
-//                                      conn.getSource().getMote().getID(), dst.getMote().getID(),
-//                                      (dst.isInterfered() ? "true" : "false"),
-//                                      conn.getSource().getLastPacketTransmitted().getPacketData().length));
-//      if (mesh && pkt[0] != 0x02 && (pkt[5] << 8 | pkt[6] &(0xff)) == dst.getMote().getID()) {
-//        hwdb.insertLater(String.format("insert into meshLinks values ('%d', '%d', '%d', '%d', '%d', '%d', '%d')\n",
-//                                      conn.getStartTime(), sim.getSimulationTime(),
-//                                      conn.getSource().getMote().getID(), dst.getMote().getID(),
-//                                      (pkt[10] << 8 | pkt[11] &(0xff)), (pkt[12] << 8 | pkt[13] &(0xff)),
-//                                      conn.getSource().getLastPacketTransmitted().getPacketData().length));}
-//    }
-    connections++;
+  public void updateSimState(Message msg){
+    switch (msg.type()){
+      case (SimState.NORMAL): {
+        sim.setSpeedLimit(1.0);
+        break;
+      }
+      case (SimState.SLOW): {
+        sim.setSpeedLimit(0.1);
+        break;
+      }
+      case (SimState.PAUSE): {
+        sim.stopSimulation();
+        break;
+      }
+      case (SimState.RESUME): {
+        sim.startSimulation();
+        break;
+      }
+      case (SimState.DOUBLE): {
+        sim.setSpeedLimit(2.0);
+        break;
+      }
+    }
   }
 
+  public Runnable updateSensorState(final Message msg) {
+    // Check we have a mote matching the ID
+    if (sim.getMotes().length <= msg.id()) {
+      logger.info("No mote for id: " + msg.id());
+      return null;
+    }
+    // Interact with mote in seperate simulation thread.
+    return new Runnable() {
+      @Override
+      public void run() {
+        sim.getMotes()[msg.id()].getInterfaces().getButton().clickButton();
+      }
+    };
+  }
+  public Runnable updateLocation(final Message msg) {
+    // Check we have a mote matching the ID
+    if (sim.getMotes().length <= msg.id()) {
+      logger.info("No mote for id: " + msg.id());
+      return null;
+    }
+    // Update it in seperate simulation thread.
+    return new Runnable() {
+      @Override
+      public void run() {
+        sim.getMotes()[msg.id()].getInterfaces().getPosition().
+                setCoordinates(msg.location().x()/100,
+                               msg.location().y()/100,
+                               msg.location().z()/100);
+     // logger.info("Got a location update for " + msg.id());
+     // logger.info("X: " + msg.location().x() +
+     //             " Y: " + msg.location().y() +
+     //             " Z: " + msg.location().z());
+      }
+    };
+  }
 
   /* Forward data: Unreal Engine Mote -> Cooja mote */
-  private class IncomingDataHandler extends Thread {
+  private class CoojaKafkaConsumer extends Thread {
     private final static String TOPIC = "sensor";
     // private final static String BOOTSTRAP_SERVERS = "146.169.15.97:9092";
     private final static String BOOTSTRAP_SERVERS = "localhost:9092";
 
-    // ByteBuffer bb;
-    // Message msg;
     private Consumer<String, byte[]> createConsumer() {
         final Properties props = new Properties();
         Thread.currentThread().setContextClassLoader(null);
@@ -394,147 +402,64 @@ public class UnrealCooja extends VisPlugin implements CoojaEventObserver, Observ
         props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG,
               ByteArrayDeserializer.class.getName());
         props.put(ConsumerConfig.FETCH_MAX_WAIT_MS_CONFIG, 0);
+        // Set max wait time for additional events
         props.put("socket.blocking.max.ms", 0);
-
         // props.put(ConsumerConfig.QUEUE_BUFFERING_MAX_MS, 10);
+
         // Create the consumer using props.
-        final Consumer<String, byte[]> consumer =
-                                    new KafkaConsumer<>(props);
+        final Consumer<String, byte[]> consumer = new KafkaConsumer<>(props);
         // Subscribe to the topic.
         consumer.subscribe(Collections.singletonList(TOPIC));
         return consumer;
 
     }
 
-//     void runConsumer() throws InterruptedException {
-//
-//     final Consumer<String, byte[]> consumer = createConsumer();
-//     final int giveUp = 100;   int noRecordsCount = 0;
-//     while (true) {
-//         final ConsumerRecords<String, byte[]> consumerRecords =
-//                 consumer.poll(10);
-//         if (consumerRecords.count()==0) {
-//             noRecordsCount++;
-//             if (noRecordsCount > giveUp) break;
-//             else continue;
-//         }
-//         // consumerRecords.forEach(record -> {
-//         //     System.out.printf("Consumer Record:(%d, %s, %d, %d)\n",
-//         //             record.key(), record.value(),
-//         //             record.partition(), record.offset());
-//         // });
-//         consumer.commitAsync();
-//     }
-//     consumer.close();
-//     System.out.println("DONE");
-// }
     @Override
     public void run() {
       System.out.println("Running consumer...");
       final Consumer<String, byte[]> consumer = createConsumer();
       Runnable toRun = null;
       try {
-      while (!Thread.currentThread().isInterrupted()) {
-        // System.out.println("Waiting for event...");
+        while (!Thread.currentThread().isInterrupted()) {
+          for (ConsumerRecord <String, byte[]> event : consumer.poll(1)) {
+            System.out.println(event.key() + " >TIMESTAMP: " + event.timestamp());
 
-        final ConsumerRecords<String, byte[]> events = consumer.poll(1);
-
-
-        // System.out.println("Got event(s)");
-        for (ConsumerRecord <String, byte[]> event : events) {
-          System.out.println(event.key() + " >TIMESTAMP: " + event.timestamp());
-          // System.out.println("Got event");
-          // byte[] data = new byte[200];
-          // DatagramPacket pkt = new DatagramPacket(data, 200);
-          // try {
-          //   udpSocket.receive(pkt);
-          // } catch (IOException ex) {
-          //   logger.error(ex);
-          // }
-          //((SkyMote)sim.getMotes()[data[0]]).getCPU().getIOUnit("ADC12");
-          final Message msg = Message.getRootAsMessage(ByteBuffer.wrap(event.value()));
-          toRun = null;
-          switch (msg.type()) {
-            case (MsgType.SPEED_NORM): {
-              sim.setSpeedLimit(1.0);
-              break;
-            }
-            case (MsgType.SPEED_SLOW): {
-              sim.setSpeedLimit(0.1);
-              break;
-            }
-            case (MsgType.PAUSE): {
-              sim.stopSimulation();
-              break;
-            }
-            case (MsgType.RESUME): {
-              sim.startSimulation();
-              break;
-            }
-            case (MsgType.RADIO_DUTY): {
-              break;
-            }
-            case (MsgType.PIR):
-            case (MsgType.FIRE): {
-              // Check we have a mote matching the ID
-              // System.out.println(sim.getMotes().length);
-              // System.out.println(msg.id());
-
-              if (sim.getMotes().length <= msg.id()) {
-                logger.info("No mote for id: " + msg.id());
+            final Message msg = Message.getRootAsMessage(ByteBuffer.wrap(event.value()));
+            toRun = null;
+            switch (msg.type()) {
+              case (MsgType.SIMSTATE): {
+                updateSimState(msg);
                 break;
               }
-              // Update it in seperate simulation thread.
-              toRun = new Runnable() {
-                @Override
-                public void run() {
-                  sim.getMotes()[msg.id()].getInterfaces().getButton().clickButton();
-                }
-              };
-              break;
-            }
-            case (MsgType.LOCATION): {
-              // Check we have a mote matching the ID
-              if (sim.getMotes().length <= msg.id()) {
-                logger.info("No mote for id: " + msg.id());
+              case (MsgType.BUTTON):
+              case (MsgType.PIR):
+              case (MsgType.FIRE): {
+                toRun = updateSensorState(msg);
                 break;
               }
-              // Update it in seperate simulation thread.
-              toRun = new Runnable() {
-                @Override
-                public void run() {
-                  // logger.info("Got a location update for " + msg.id());
-                  // logger.info("X: " + msg.location().x() +
-                  //             " Y: " + msg.location().y() +
-                  //             " Z: " + msg.location().z());
-                  sim.getMotes()[msg.id()].getInterfaces().getPosition().
-                          setCoordinates(msg.location().x()/100,
-                                         msg.location().y()/100,
-                                         msg.location().z()/100);
-                }
-              };
-              break;
+              case (MsgType.LOCATION): {
+                toRun = updateLocation(msg);
+              }
+              default: {
+                logger.info("Message type not supported: " + MsgType.name(msg.type()));
+              }
             }
-            default: {
-              logger.info("Message type not recognised");
+            if (toRun != null) {
+              sim.invokeSimulationThread(toRun);
             }
+            logger.info("RECV: " + sim.getSimulationTime());
           }
-          if (toRun != null) sim.invokeSimulationThread(toRun);
-          logger.info("RECV: " + sim.getSimulationTime());
         }
-      }
     } catch (Exception e) {
       System.out.println(e);
     }
       consumer.close();
-      logger.info("Interrupted: Exited UDP SOCKET read loop, closing socket");
-      // udpSocket.close();
+      logger.info("Interrupted: Exited KafkaConsumer read loop");
     }
 
     public void interrupt() {
       super.interrupt();
-      // udpSocket.close();
-      logger.info("Socket Closed");
+      logger.info("KafkaConsumer stopped");
     }
   }
 }

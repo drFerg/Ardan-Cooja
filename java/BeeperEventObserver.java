@@ -20,31 +20,22 @@ import org.apache.kafka.common.serialization.ByteArraySerializer;
 /**
  * Created by fergus on 09/11/15.
  */
-public class LEDEventObserver extends InterfaceEventObserver {
-    private LED leds;
-    private int[] status = {0, 0, 0};
-    public LEDEventObserver(Mote mote,
+public class BeeperEventObserver extends InterfaceEventObserver {
+    public BeeperEventObserver(Mote mote,
                             Observable ledInterface,
                             Producer<String, byte[]> kafkaProducer) {
         super(mote, ledInterface, kafkaProducer);
-        this.leds = (LED) ledInterface;
     }
 
     @Override
     public void update(Observable observable, Object o) {
-        status[0] = (leds.isRedOn()? 1: 0);
-        status[1] = (leds.isGreenOn()? 1: 0);
-        status[2] = (leds.isYellowOn()? 1: 0);
-
         FlatBufferBuilder builder = new FlatBufferBuilder(50);
-        int ledVec = Message.createLedVector(builder, status);
         Message.startMessage(builder);
-    		Message.addType(builder, MsgType.LED);
+    		Message.addType(builder, MsgType.BEEPER);
     		Message.addId(builder, mote.getID() - 1);
-    		Message.addLed(builder, ledVec);
     		int msg = Message.endMessage(builder);
         builder.finish(msg);
 
-        publish("actuator", "LED: " + mote.getID(), builder.sizedByteArray());
+        publish("actuator", "Beeper: " + mote.getID(), builder.sizedByteArray());
       }
 }

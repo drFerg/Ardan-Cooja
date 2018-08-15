@@ -1,6 +1,3 @@
-import java.net.DatagramPacket;
-import java.net.DatagramSocket;
-import java.net.InetAddress;
 import java.util.Observable;
 import java.util.Observer;
 
@@ -32,32 +29,22 @@ public class RadioMediumEventObserver implements Observer {
 	private RadioMedium network;
 	protected CoojaEventObserver parent;
 	protected static Logger logger = Logger.getLogger(InterfaceEventObserver.class);
-	DatagramSocket clientSocket;
-	InetAddress ipAddress;
-	int port;
-	DatagramPacket sendPacket;
+
 	Producer<String, byte[]> kafka;
-	public RadioMediumEventObserver(CoojaEventObserver parent, RadioMedium network, InetAddress clientIPAddr, int clientPort, Producer<String, byte[]> prod){
+	public RadioMediumEventObserver(RadioMedium network,
+																	Producer<String, byte[]> prod){
 		this.network = network;
 		this.parent = parent;
-		this.port = clientPort;
 		kafka = prod;
-		try {
-			clientSocket = new DatagramSocket();
-			ipAddress = clientIPAddr;
-		} catch (Exception e) {
-			logger.error("RMEO>> " + e.getMessage());
-		}
+
 		this.network.addRadioTransmissionObserver(this);
 			logger.info("Created radio medium observer");
 	}
 
 	@Override
 	public void update(Observable obs, Object obj) {
-//		parent.radioMediumEventHandler(network.getLastConnection());
 		RadioConnection conn = network.getLastConnection();
 		if (conn == null) return;
-		//logger.info(conn);
 		Radio[] dests = conn.getDestinations();
 		if (dests.length == 0) return;
 		FlatBufferBuilder builder = new FlatBufferBuilder(1024);
@@ -71,16 +58,11 @@ public class RadioMediumEventObserver implements Observer {
 		Message.addId(builder, conn.getSource().getMote().getID() - 1);
 		Message.addRcvd(builder, rcvd);
 		int msg = Message.endMessage(builder);
-    Message.finishMessageBuffer(builder, msg);
+    builder.finish(msg);
     byte[] data = builder.sizedByteArray();
 
-		try {
-			kafka.send(new ProducerRecord<String, byte[]>("sensor", "radio", data));
-			sendPacket = new DatagramPacket(data, data.length, ipAddress, port);
-			clientSocket.send(sendPacket);
-		} catch (Exception e) {
-			logger.info(e.getMessage());
-		}
+		kafka.send(new ProducerRecord<String, byte[]>("sensor", "radio", data));
+
 	}
 
 	public void deleteObserver() {

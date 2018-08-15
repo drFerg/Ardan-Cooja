@@ -3,9 +3,6 @@ import org.apache.log4j.Logger;
 import org.contikios.cooja.Simulation;
 import org.contikios.cooja.interfaces.LED;
 
-import java.net.DatagramPacket;
-import java.net.DatagramSocket;
-import java.net.InetAddress;
 import java.util.Observable;
 import java.util.Observer;
 
@@ -14,8 +11,6 @@ import UnrealCoojaMsg.MsgType;
 import com.google.flatbuffers.*;
 
 import java.util.Properties;
-import org.apache.kafka.clients.consumer.*;
-import org.apache.kafka.clients.consumer.Consumer;
 import org.apache.kafka.clients.producer.*;
 import org.apache.kafka.clients.producer.Producer;
 import org.apache.kafka.common.serialization.StringDeserializer;
@@ -26,34 +21,13 @@ import org.apache.kafka.common.serialization.ByteArraySerializer;
  * Created by fergus on 09/11/15.
  */
 public class LEDEventObserver extends InterfaceEventObserver {
-    private static Logger logger = Logger.getLogger(InterfaceEventObserver.class);
     private LED leds;
-    private boolean red;
-    private boolean yellow;
-    private boolean green;
-    DatagramSocket clientSocket;
-    InetAddress ipAddress;
-    DatagramPacket sendPacket;
-    int[] status;
-    int port;
-    Producer<String, byte[]> kafka;
-    Simulation sim;
+    private int[] status;
     public LEDEventObserver(Simulation sim, MoteObserver parent, Mote mote,
-                            Observable interfaceToObserve,
-                            InetAddress clientIPAddr, int clientPort, Producer<String, byte[]> p) {
-
-        super(parent, mote, interfaceToObserve);
-        this.leds = (LED) interfaceToObserve;
-        this.port = clientPort;
-        this.sim = sim;
-        kafka = p;
-        logger.info("Created LED observer");
-        try {
-            clientSocket = new DatagramSocket();
-            ipAddress = clientIPAddr;
-        } catch (Exception e) {
-            logger.error("LEDEO>> " + e.getMessage());
-        }
+                            Observable ledInterface,
+                            Producer<String, byte[]> kafkaProducer) {
+        super(sim, parent, mote, ledInterface, kafkaProducer);
+        this.leds = (LED) ledInterface;
         status = new int[3];
     }
 
@@ -70,16 +44,8 @@ public class LEDEventObserver extends InterfaceEventObserver {
     		Message.addId(builder, mote.getID() - 1);
     		Message.addLed(builder, ledVec);
     		int msg = Message.endMessage(builder);
-        Message.finishMessageBuffer(builder, msg);
+        builder.finish(msg);
 
-
-        try {
-            // sendPacket = new DatagramPacket(data, data.length, ipAddress, port);
-            // clientSocket.send(sendPacket);
-            kafka.send(new ProducerRecord<String, byte[]>("actuator", "" + mote.getID(), builder.sizedByteArray()));
-            logger.info("SEND: " + sim.getSimulationTime());
-        } catch (Exception e) {
-            logger.info("Exception:" + e.getMessage());
-        }
-    }
+        publish("actuator", "" + mote.getID(), builder.sizedByteArray());
+      }
 }

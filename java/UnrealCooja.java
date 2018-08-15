@@ -214,7 +214,7 @@ public class UnrealCooja extends VisPlugin implements CoojaEventObserver, Observ
     Message m = Message.getRootAsMessage(builder.dataBuffer());
     byte[] data = builder.sizedByteArray();
     try {
-      producer.send(new ProducerRecord<String, byte[]>("sensor", "", data));
+      producer.send(new ProducerRecord<String, byte[]>("radio", "", data));
 			// sendPacket = new DatagramPacket(data, data.length, clientIPAddr, clientPort);
       // logger.info("GOT DUTY");
 			// udpSocket.send(sendPacket);

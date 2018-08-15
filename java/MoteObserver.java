@@ -47,12 +47,12 @@ public class MoteObserver {
       logger.info("Adding interfaces for mote: " + mote.getID());
       //cpu = new CPUEventObserver(this, mote);
 
-      for (MoteInterface mi : mote.getInterfaces().getInterfaces()) {
-        if (mi != null) {
-//          if (mi instanceof Radio)
-//            observers.add(new RadioEventObserver(this, mote, mi));
-            if (mi instanceof LED)
-              observers.add(new LEDEventObserver(sim, this, mote, mi, ipAddr, port, kafka));
+      for (MoteInterface moteInterface : mote.getInterfaces().getInterfaces()) {
+        if (moteInterface != null) {
+//          if (moteInterface instanceof Radio)
+//            observers.add(new RadioEventObserver(this, mote, moteInterface));
+            if (moteInterface instanceof LED)
+              observers.add(new LEDEventObserver(sim, this, mote, moteInterface, kafka));
           // else
           //   observers.add(new InterfaceEventObserver(this, mote, mi));
         }

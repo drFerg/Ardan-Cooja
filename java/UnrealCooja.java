@@ -70,7 +70,7 @@ import se.sics.mspsim.core.MSP430;
 @PluginType(PluginType.SIM_PLUGIN)
 public class UnrealCooja extends VisPlugin implements Observer{
   // private final static String BOOTSTRAP_SERVERS = "146.169.15.97:9092";
-  private final static String BOOTSTRAP_SERVERS = "localhost:9092";
+  private final static String BOOTSTRAP_SERVERS = "192.168.0.121:9092";
 
   private static final long serialVersionUID = 4368807123350830772L;
   private static Logger logger = Logger.getLogger(UnrealCooja.class);
@@ -297,12 +297,19 @@ public class UnrealCooja extends VisPlugin implements Observer{
   public void closePlugin() {
     /* Clean up plugin resources */
     logger.info("Stopping KafkaConsumer...");
-    kafkaConsumer.interrupt();
-    try {
-      kafkaConsumer.join();
-    } catch (InterruptedException e) {
-      logger.info("Interrupted whilst waiting for kafkaConsumer");
-      logger.error(e.getMessage());
+    if (kafkaConsumer != null){
+      try {
+        kafkaConsumer.interrupt();
+      } catch (Exception e) {
+        logger.error("Failed to interrupt kafkaConsumer");
+        logger.error(e.getMessage());
+      }
+      try {
+        kafkaConsumer.join();
+      } catch (InterruptedException e) {
+        logger.info("Interrupted whilst waiting for kafkaConsumer");
+        logger.error(e.getMessage());
+      }
     }
     logger.info("Tidying up UnrealCooja listeners/observers");
     if (!initialised) return;
@@ -313,8 +320,8 @@ public class UnrealCooja extends VisPlugin implements Observer{
     }
     for (MoteTracker t: moteTrackers) {
       t.dispose();
-      moteTrackers.remove(t);
     }
+    moteTrackers.clear();
     logger.info("UnrealCooja cleaned up");
   }
 
@@ -324,7 +331,7 @@ public class UnrealCooja extends VisPlugin implements Observer{
   }
 
   public void updateSimState(Message msg){
-    switch (msg.type()){
+    switch (msg.simState()){
       case (SimState.NORMAL): {
         sim.setSpeedLimit(1.0);
         break;
@@ -362,10 +369,16 @@ public class UnrealCooja extends VisPlugin implements Observer{
       }
     };
   }
+
   public Runnable updateLocation(final Message msg) {
     // Check we have a mote matching the ID
+    System.out.println("Motes: " + sim.getMotes().length + " - " + msg.id());
     if (sim.getMotes().length <= msg.id()) {
       logger.info("No mote for id: " + msg.id());
+      return null;
+    }
+    if (msg.location() == null) {
+      logger.info("Got null location");
       return null;
     }
     // Update it in seperate simulation thread.
@@ -388,7 +401,7 @@ public class UnrealCooja extends VisPlugin implements Observer{
   private class CoojaKafkaConsumer extends Thread {
     private final static String TOPIC = "sensor";
     // private final static String BOOTSTRAP_SERVERS = "146.169.15.97:9092";
-    private final static String BOOTSTRAP_SERVERS = "localhost:9092";
+    private final static String BOOTSTRAP_SERVERS = "192.168.0.121:9092";
 
     private Consumer<String, byte[]> createConsumer() {
         final Properties props = new Properties();
@@ -403,7 +416,7 @@ public class UnrealCooja extends VisPlugin implements Observer{
               ByteArrayDeserializer.class.getName());
         props.put(ConsumerConfig.FETCH_MAX_WAIT_MS_CONFIG, 0);
         // Set max wait time for additional events
-        props.put("socket.blocking.max.ms", 0);
+        // props.put("socket.blocking.max.ms", 0);
         // props.put(ConsumerConfig.QUEUE_BUFFERING_MAX_MS, 10);
 
         // Create the consumer using props.
@@ -421,11 +434,12 @@ public class UnrealCooja extends VisPlugin implements Observer{
       Runnable toRun = null;
       try {
         while (!Thread.currentThread().isInterrupted()) {
-          for (ConsumerRecord <String, byte[]> event : consumer.poll(1)) {
+          for (ConsumerRecord <String, byte[]> event : consumer.poll(5)) {
             System.out.println(event.key() + " >TIMESTAMP: " + event.timestamp());
-
+            if (event.value() == null) continue;
             final Message msg = Message.getRootAsMessage(ByteBuffer.wrap(event.value()));
             toRun = null;
+            System.out.println("Type: " + msg.type());
             switch (msg.type()) {
               case (MsgType.SIMSTATE): {
                 updateSimState(msg);
@@ -453,8 +467,11 @@ public class UnrealCooja extends VisPlugin implements Observer{
     } catch (Exception e) {
       System.out.println(e);
     }
-      consumer.close();
-      logger.info("Interrupted: Exited KafkaConsumer read loop");
+      try {
+        consumer.close();
+      } finally {
+        logger.info("Interrupted: Exited KafkaConsumer read loop");
+      }
     }
 
     public void interrupt() {
